@@ -311,111 +311,131 @@ Confusion matrix trên 1000 ảnh val:
 
 → ResNet18 transfer dí ngược BigGAN-128 lên **99.10%**, gần như hoàn hảo.
 
-#### 4.5.4 Confound — phải tách yếu tố
+#### 4.5.4 Tách confound — chạy ResNet18 transfer cũng trên PGAN-DTD
 
-Bảng tổng kết (phiên bản chưa đầy đủ):
-
-| Detector | cGAN-MNIST | PGAN-DTD | BigGAN-128 |
-|---|---|---|---|
-| Hand-feature `Var(Lap)` | d = +1.08 | d = −0.19 | (chưa đo) |
-| TinyCNN/TexCNN scratch | 98.78% | 62.50% | (n/a) |
-| ResNet18 transfer | (n/a) | **TBD — đang chạy** | **99.10%** |
-
-Bước nhảy 62.5% → 99.1% giữa PGAN và BigGAN có **2 yếu tố cùng đổi**:
+Bước nhảy 62.5% → 99.1% giữa PGAN-TexCNN-scratch và BigGAN-ResNet18-transfer có **2 yếu tố cùng đổi**:
 
 1. GAN khác kiến trúc (PGAN unconditional 2018 vs BigGAN class-conditional 2018)
-2. Detector khác hẳn (small CNN scratch vs ResNet18 pretrained ImageNet transfer)
+2. Detector khác hẳn (TexCNN scratch ~564 k params vs ResNet18 pretrained ~11 M params)
 
-Nếu chỉ nhìn 62.5% → 99.1% mà chưa tách 2 yếu tố này, không phân biệt được:
+Nếu chỉ so 62.5% với 99.1%, không phân biệt được:
 - (A) "BigGAN dễ detect hơn PGAN" — yếu tố GAN
 - (B) "ResNet18 transfer mạnh hơn TexCNN scratch" — yếu tố detector
 
-Để tách, chúng tôi chạy thêm thí nghiệm ô bị thiếu: **ResNet18 transfer cũng trên PGAN-DTD** (cùng arch, cùng pipeline, cùng N_PER_CLASS=2500). Script `lab2_cnn_pgan_resnet.py`. Kết quả sẽ điền vào ô "TBD" trên.
+Để tách, chúng tôi chạy thêm ô bị thiếu: **ResNet18 transfer cũng trên PGAN-DTD** (cùng arch, cùng pipeline, cùng N_PER_CLASS=2500, cùng 2-phase training). Script `lab2_cnn_pgan_resnet.py`.
 
-Hai outcome có thể:
+**Kết quả PGAN + ResNet18 transfer**:
 
-- Nếu **PGAN-ResNet18 ≈ 90%+**: ResNet18 transfer "cứu" mọi modern GAN. Yếu tố detector dominate, GAN architecture chỉ là noise.
-- Nếu **PGAN-ResNet18 vẫn ≈ 60-70%**: PGAN-DTD intrinsically khó hơn BigGAN dù có detector mạnh. Yếu tố GAN architecture mới là quan trọng.
+Phase 1 (head only): 85.10% → 87.70% → 88.70%
 
-Hai outcome dẫn tới 2 kết luận khác nhau cho ensemble (Section 5).
+Phase 2 (unfreeze layer4):
 
-## 5. Ensemble learning — không có single detector generalize
+| Epoch | Train acc | Val acc |
+|---|---|---|
+| 1 | 92.27% | 96.60% |
+| 4 | 98.68% | 97.80% |
+| 8 (best) | 98.70% | **98.70%** |
+| 12 | 99.35% | 98.40% |
 
-### 5.1 Quan sát: mỗi detector chuyên một loại GAN
+Confusion matrix trên 1000 ảnh val:
 
-Đặt cạnh nhau toàn bộ kết quả thực nghiệm:
+|  | pred = real | pred = fake |
+|---|---|---|
+| **true = real** | 471 | 10 |
+| **true = fake** | 3 | 516 |
 
-| Detector | Tham số | Pretrained? | cGAN-MNIST | PGAN-DTD | BigGAN-128 |
+- Real recall: 97.92%
+- Fake recall: **99.42%**
+- Best val accuracy: **98.70%**
+
+#### 4.5.5 Bảng đầy đủ — yếu tố nào dominate?
+
+| Detector | Tham số | cGAN-MNIST | PGAN-DTD | BigGAN-128 |
+|---|---|---|---|---|
+| Hand-feature `Var(Lap)` | 0 | d = +1.08 (mạnh) | d = −0.19 (~0) | chưa đo |
+| Small CNN scratch | 105 k–564 k | **98.78%** (TinyCNN) | **62.50%** (TexCNN) | n/a |
+| ResNet18 transfer (ImageNet) | 11.2 M | n/a | **98.70%** | **99.10%** |
+
+**Kết luận tách confound**: ResNet18 transfer đẩy PGAN từ 62.5% → **98.70%** (nhảy +36 điểm), gần bằng BigGAN-ResNet18 (99.10%). Hai số chỉ chênh 0.4 điểm.
+
+→ Yếu tố **detector capacity + transfer learning từ ImageNet** mới là dominate, KHÔNG phải GAN architecture. PGAN-DTD và BigGAN-128 đều "dễ" như nhau với một detector đủ mạnh. Cái bị "kẹt 62.5%" là TexCNN scratch chứ không phải PGAN.
+
+Đây là một "negative result" có giá trị cho narrative: kết quả ban đầu ở Section 4.4 ("PGAN khó detect") thực ra là **hạn chế của TexCNN scratch**, không phải tính chất của PGAN. Lab kết hợp 2 thí nghiệm song song để tránh kết luận sai.
+
+## 5. Ensemble learning — phân tầng theo cost vs khả năng
+
+Sau khi tách confound ở 4.5.4, kết luận chính được điều chỉnh: **detector capacity + transfer learning** mới là factor dominate, không phải GAN architecture. Vậy ensemble vẫn còn ý nghĩa không?
+
+### 5.1 Đặt cạnh nhau toàn bộ kết quả
+
+| Detector | Tham số | Cost (train + inf) | cGAN-MNIST | PGAN-DTD | BigGAN-128 |
 |---|---|---|---|---|---|
-| `Var(Laplacian)` (hand-feature) | 0 | — | d = +1.08 (mạnh) | d = −0.19 (~0) | chưa đo |
-| TinyCNN (2 conv + FC) | 105 k | scratch | **98.78%** | (n/a, input shape khác) | (n/a) |
-| TexCNN (4 conv + FC) | 564 k | scratch | (chưa thử) | **62.50%** | (chưa thử) |
-| ResNet18 transfer | 11.2 M | ImageNet | (n/a) | **TBD** | **99.10%** |
+| `Var(Laplacian)` (hand-feature) | 0 | $O(1)$ — chỉ vài conv | d = +1.08 (mạnh) | d = −0.19 (~0) | chưa đo |
+| TinyCNN scratch | 105 k | rẻ (CPU 5 epoch) | **98.78%** | n/a (input shape) | n/a |
+| TexCNN scratch | 564 k | trung bình (GPU 8 epoch) | (chưa thử) | 62.50% | (chưa thử) |
+| ResNet18 transfer | 11.2 M | đắt (GPU 15 epoch + pretrained download) | n/a | **98.70%** | **99.10%** |
 
-**Quan sát chính**: không có một detector duy nhất dẫn đầu trên cả 3 GAN. Mỗi method có **vùng mạnh** riêng:
+**Quan sát quan trọng**:
 
-- `Var(Lap)` chỉ làm việc khi GAN để lại **noise pixel-level** rõ rệt (như MLP-cGAN). Trên GAN conv-based (PGAN), tín hiệu này biến mất.
-- TinyCNN nhỏ rất hiệu quả khi tín hiệu fake là "high-freq pixel jitter trong nền sạch" (MNIST + cGAN-MLP), vì capacity nhỏ vừa đủ học Sobel-like kernel. Không scale lên ảnh phức tạp.
-- TexCNN scratch + ảnh texture phức tạp → không có tín hiệu rõ để bắt → 62.50%.
-- ResNet18 transfer học được feature trừu tượng từ ImageNet → bắt được artifact tinh vi của BigGAN ở 99.10%.
+1. ResNet18 transfer chiếm thế áp đảo trên cả 2 modern GAN (98.70% và 99.10%). **Không có "PGAN khó hơn BigGAN"** — chỉ có "TexCNN không đủ".
+2. Trên cGAN-MNIST, TinyCNN 105 k params đủ ăn 98.78%. **ResNet18 sẽ overkill** ở đây — input 28×28 grayscale phải resize/pad lên 224×224 RGB, lãng phí compute, và TinyCNN đã đạt tới ngưỡng có thể.
+3. `Var(Lap)` cho cGAN-MNIST có Cohen's d = +1.08 — nghĩa là một bộ phân loại tuyến tính trên feature này có thể đạt khoảng 75-85% **không cần training**. Đây là baseline rẻ nhất, dùng được khi không có GPU.
 
-### 5.2 Ý tưởng ensemble — kết hợp predictions của detector chuyên biệt
+### 5.2 Ensemble = phân tầng cost, không phải specialization
 
-Nếu mỗi detector mạnh ở một vùng, kết hợp probabilities của chúng cho cùng một ảnh sẽ cover được nhiều vùng hơn 1 detector đơn lẻ. Đây là **soft voting ensemble** đơn giản:
+Nếu chỉ có 1 phân loại "thắng" trên modern GAN (ResNet18 transfer), tại sao vẫn cần ensemble? Lý do là **trade-off cost vs accuracy + robustness**:
 
-$$
-P_{\text{ensemble}}(\text{fake} \mid x) = \sum_{i=1}^{K} w_i \cdot P_i(\text{fake} \mid x)
-$$
+```
+Tier 1 (rẻ, nhanh):   Var(Lap)        ─── lọc bỏ MLP-GAN trivial
+                                          (cGAN-MNIST, DCGAN, ...)
+Tier 2 (trung bình):  TinyCNN scratch ─── đủ cho domain-specific simple
+                                          (MNIST-like grayscale)
+Tier 3 (đắt):         ResNet18 transfer ─ deploy cho ảnh natural phức tạp
+                                          (PGAN, BigGAN, StyleGAN, ...)
+```
 
-Trong đó $P_i$ là probability mà detector $i$ output, $w_i$ là trọng số (có thể đều, hoặc tỉ lệ thuận với độ tin cậy của detector $i$ trên domain của ảnh $x$).
-
-**Mathematical basis**: nếu các detector có error pattern **độc lập** (mỗi cái sai ở những ảnh khác nhau), variance của ensemble error giảm theo $1/K$ — đây là lý do bagging và random forest hoạt động.
-
-**Pseudo-code thực hiện** trên hệ thống thực:
+**Cách dùng**: pipeline cascade — chạy detector rẻ trước. Nếu confidence cao (P > 0.95), trả luôn. Nếu thấp/uncertain, escalate lên detector mạnh hơn. Ý tưởng cùng họ với "early exit" trong inference.
 
 ```python
 def detect_fake(image, domain_hint=None):
-    # 1. Domain-aware dispatch (nếu biết loại ảnh)
-    if domain_hint == "mnist-like":
-        return tiny_cnn(image)
-    elif domain_hint == "natural-photo":
-        return resnet18_transfer(image)
+    # Tier 1 — ~1 ms, không cần GPU
+    p1 = sigmoid(scaled_var_laplacian(image))
+    if p1 > 0.9:  # rất tự tin: trả ngay
+        return p1
 
-    # 2. Ngược lại — soft voting toàn bộ
-    p_handfeat = sigmoid(scaled_var_laplacian(image))  # 0..1
-    p_tinycnn  = tiny_cnn_prob_fake(resize_28(image))
-    p_resnet   = resnet18_prob_fake(resize_128(image))
-    return 0.2 * p_handfeat + 0.3 * p_tinycnn + 0.5 * p_resnet
+    # Tier 2 — ~5 ms, GPU optional
+    if domain_hint == "mnist-like" or image.shape[-1] <= 32:
+        return tiny_cnn(image)
+
+    # Tier 3 — ~30 ms, GPU
+    return resnet18_transfer(image)
 ```
 
-Trọng số `0.2/0.3/0.5` ưu tiên ResNet18 vì có capacity lớn nhất + pretrained, nhưng vẫn giữ `Var(Lap)` (rẻ, rất mạnh trên MLP-GAN) và TinyCNN (specialist cho MNIST-like).
+### 5.3 Khi nào ensemble VOTING thật sự cần?
 
-### 5.3 Ensemble narrative phụ thuộc kết quả PGAN-ResNet18
+Soft voting (kết hợp probabilities) chỉ thắng pipeline cascade ở 2 trường hợp:
 
-> **Block này sẽ điền sau khi user về với số PGAN-ResNet18.**
->
-> - **Nếu PGAN-ResNet18 ≈ 90%+**: kết luận = "transfer learning là silver bullet". Ensemble đơn giản hóa thành "luôn dùng pretrained transfer". Hand-feature + small CNN trở thành baseline để demo concept, không cần trong production.
->
-> - **Nếu PGAN-ResNet18 ≈ 60-70%**: kết luận = "không có silver bullet". Ensemble + domain dispatch là path khả thi duy nhất. Cụ thể:
->   - GAN MLP-jitter → `Var(Lap)` đủ
->   - GAN conv smooth + ảnh natural → ResNet18 transfer
->   - GAN conv smooth + ảnh texture (như PGAN-DTD) → cần detector chuyên biệt khác (frequency-based, hoặc patch-based)
+1. **Adversarial robustness**: attacker tối ưu để qua một detector cụ thể. Voting nhiều detector với inductive bias khác nhau (hand-feature + ResNet18 + frequency-domain) buộc attacker phải qua mặt **đồng thời** nhiều mục tiêu — tăng cost của attack theo cấp số.
+2. **Out-of-distribution**: GAN mới chưa có trong training set. Mỗi detector "vote" theo prior khác nhau — agreement = tín hiệu mạnh, disagreement = uncertainty. Có thể dùng disagreement threshold để flag ảnh cho human review.
+
+Toán học của lý do này: nếu 2 detector $D_1, D_2$ có error rate $e_1, e_2$ và lỗi **độc lập**, ensemble theo majority vote có error rate xấp xỉ $e_1 e_2$ — giảm rất nhanh khi số detector tăng. Điều kiện "độc lập" là thứ ta cố tình ép có bằng cách chọn detector từ các họ khác nhau (classical CV + small CNN + transfer learning).
 
 ### 5.4 Hạn chế của ensemble
 
-1. **Cost cao gấp K lần** ở inference — chạy K models cho 1 ảnh.
-2. **Calibration**: các detector output probabilities không trên cùng scale (TinyCNN có thể tự tin 99% sai, ResNet18 có thể conservative). Cần Platt scaling hoặc isotonic regression trước khi voting.
-3. **Adversarial attack**: nếu attacker biết toàn bộ ensemble, họ có thể tối ưu loss tổng để qua mặt cùng lúc cả K detector. Ensemble chỉ tăng cost của attack, không loại trừ.
-4. **Vẫn không generalize** sang GAN tương lai (StyleGAN3, diffusion). Mỗi loại fake mới cần thêm detector mới vào ensemble — đây là bản chất arms race.
+1. **Cost cao gấp K lần** ở inference — chạy K models cho 1 ảnh. Cascade tier giảm cost trung bình nhưng vẫn cao hơn 1 detector.
+2. **Calibration**: các detector output probabilities không trên cùng scale (TinyCNN tự tin 99%, ResNet18 conservative 70%). Cần Platt scaling hoặc isotonic regression trên held-out set trước khi voting.
+3. **Lỗi không độc lập tự nhiên**: nếu cả 3 detector cùng học trên cùng training set và cùng định nghĩa "real", chúng có thể cùng sai trên cùng nhóm ảnh. Phải chủ động đa dạng hoá data + training để ép độc lập.
+4. **Adversarial attack vẫn vượt được** nếu ensemble cố định và attacker biết cấu trúc. Tăng cost, không loại trừ.
+5. **Không generalize sang generative model khác họ** (diffusion). Diffusion có dấu vân tay khác hoàn toàn — cần detector mới hẳn, không phải biến thể của những cái có sẵn.
 
 ## 6. Hạn chế
 
-1. **Phụ thuộc kiến trúc GAN**: small CNN scratch giảm từ 98.78% (cGAN) xuống 62.50% (PGAN). ResNet18 transfer cứu được BigGAN lên 99.10%, nhưng câu hỏi PGAN có cứu được không vẫn pending (Section 4.5.4).
+1. **Detector capacity là yếu tố dominate, không phải GAN architecture**: kết luận ban đầu ở Section 4.4 ("PGAN khó detect") đã được tách confound ở 4.5.4 — thực ra TexCNN scratch không đủ, không phải PGAN khó. Khi dùng ResNet18 transfer, PGAN cũng dễ như BigGAN (98.70% vs 99.10%).
 2. **MNIST quá sạch**: ảnh MNIST không có sensor noise, JPEG, nén — nên TinyCNN không phải học phân biệt "noise GAN" với "noise camera". Trên ảnh thực tế (sensor noise), tín hiệu jitter pixel-level bị che → TinyCNN sẽ gãy.
 3. **Grad-CAM ở conv2 (resolution 7×7)**: heatmap upsample từ `7×7 → 28×28` mất chi tiết pixel-level, hot spots hơi mờ. Có thể thử Grad-CAM trên `conv1` để có heatmap mịn hơn.
 4. **Không kiểm tra adversarial robustness**: nếu attacker biết detector, họ có thể train GAN với loss thêm penalty trên `Var(Laplacian)` hoặc match feature ResNet18 → detector gãy. Đây là điểm yếu chung của content-based detection.
-5. **Imagenette ≠ ImageNet đầy đủ**: chúng tôi dùng Imagenette-160 (10 lớp subset) làm reals cho BigGAN. BigGAN sample từ 1000 lớp, nhưng reals chỉ có 10 lớp. Distribution mismatch nhỏ — có thể inflate accuracy. Tuy nhiên ResNet18 transfer học "real photo vs synthetic" chứ không "đoán class", nên ảnh hưởng nhỏ.
-6. **N=2500/lớp cho BigGAN nhưng N=1500/lớp cho TexCNN-PGAN**: data không cân — đó cũng là một biến confound nhỏ trong stress test 4.4 vs 4.5. Script `lab2_cnn_pgan_resnet.py` chạy với N=2500 để fair.
+5. **Imagenette ≠ ImageNet đầy đủ**: chúng tôi dùng Imagenette-160 (10 lớp subset) làm reals cho BigGAN. BigGAN sample từ 1000 lớp nhưng reals chỉ có 10 lớp — distribution mismatch nhỏ có thể inflate accuracy. Tuy nhiên ResNet18 transfer học "real photo vs synthetic" chứ không "đoán class", nên ảnh hưởng nhỏ.
+6. **Chưa chứng minh ensemble giúp**: Section 5 đề xuất ensemble theo lý thuyết, nhưng chưa run thực nghiệm so sánh "ensemble vs ResNet18 đơn lẻ" trên cùng test set. Cần thí nghiệm phụ với cross-architecture test (train trên BigGAN, test trên StyleGAN — chưa có) để chứng minh ensemble robust hơn.
 
 ## 7. Đề xuất phòng chống fake data
 
@@ -431,7 +451,8 @@ Từ kết quả + hạn chế:
 
 - **Trục mathematical**: convolution + ReLU + gradient descent + Grad-CAM — toàn bộ pipeline xây từ các thành phần toán đã biết, không có magic. Convolution mà CNN học được đóng vai trò cùng loại với Sobel/Laplacian hand-set, chỉ khác là kernel được optimize bằng gradient descent thay vì đặt sẵn.
 - **TinyCNN trên cGAN-MNIST**: 105 k tham số, val acc **98.78%**. Grad-CAM xác nhận CNN tự học "nhìn vào pixel jitter" (Pearson r = +0.52 với high-freq map). Background jitter của fake mạnh hơn real ~**1615×** — đây là dấu vân tay không thể che giấu của MLP architecture.
-- **TexCNN trên PGAN-DTD**: 564 k tham số, val acc **62.50%**. PGAN dùng nearest-neighbor upsample + conv để tránh checkerboard → output mượt → small CNN scratch không bám được.
-- **ResNet18 transfer trên BigGAN-128**: 11 M tham số (pretrained ImageNet), val acc **99.10%**. Transfer learning + capacity lớn giải quyết được BigGAN. Câu hỏi mở: liệu cũng giải được PGAN không (Section 4.5.4 đang chờ thí nghiệm).
-- **Ensemble argument** (Section 5): không có single detector dẫn đầu trên cả 3 GAN. Mỗi method có vùng mạnh riêng → soft voting + domain dispatch là path thực tế. Bài toán phát hiện ảnh AI giả mạo bản chất là arms race liên tục.
-- **Trên hết**: content-based detection (cả classical lẫn deep) có thể bị adversarial attack đánh bại. Hướng phòng chống bền vững là **provenance-based** (C2PA watermark, digital signature) — chứng minh ảnh là thật, không cần chứng minh ảnh là giả.
+- **TexCNN trên PGAN-DTD (scratch)**: 564 k tham số, val acc **62.50%**. PGAN dùng nearest-neighbor upsample + conv để tránh checkerboard → output mượt → small CNN scratch không bám được. **Nhưng đây là hạn chế của TexCNN, không phải PGAN.**
+- **ResNet18 transfer trên cả PGAN-DTD và BigGAN-128**: 11 M tham số (pretrained ImageNet) → val acc **98.70% (PGAN)** và **99.10% (BigGAN)**. Hai số gần như bằng nhau → **detector capacity + transfer learning** mới là factor dominate. GAN architecture sophistication chỉ là yếu tố phụ một khi detector đủ mạnh.
+- **Negative result có giá trị**: Section 4.5.4 cho thấy kết luận "PGAN khó detect" ở Section 4.4 là sai khi nhìn rộng hơn. Chạy ô bị thiếu (PGAN-ResNet18) đã ngăn lab kết luận sai về tính chất của PGAN.
+- **Ensemble argument được điều chỉnh** (Section 5): không phải "mỗi GAN cần một detector chuyên", mà là "phân tầng cost vs khả năng" — `Var(Lap)` rẻ cho MLP-GAN trivial, ResNet18 transfer đắt nhưng bao quát modern GAN. Voting toàn ensemble chỉ có giá trị thật cho **adversarial robustness** và **out-of-distribution detection**, không phải accuracy.
+- **Trên hết**: content-based detection (cả classical lẫn deep) đều có thể bị adversarial attack đánh bại. Hướng phòng chống bền vững là **provenance-based** (C2PA watermark, digital signature) — chứng minh ảnh là thật, không cần chứng minh ảnh là giả.

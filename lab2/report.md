@@ -26,7 +26,7 @@ $$
 \min_G \max_D \; \mathbb{E}_{x \sim p_\text{data}} [\log D(x)] + \mathbb{E}_{z \sim \mathcal{N}(0,I)} [\log(1 - D(G(z)))]
 $$
 
-Triển khai trong PyTorch sử dụng `nn.BCELoss` với optimizer Adam $(\text{lr}=2 \times 10^{-4}, \beta_1 = 0.5)$, batch size 256, 60 epoch trên CPU. Checkpoint $G$ được lưu tại `output_lab2/G_final.pth` và tái sử dụng cho mọi khảo sát phía sau.
+Triển khai trong PyTorch sử dụng `nn.BCELoss` với optimizer Adam $(\text{lr}=2 \times 10^{-4}, \beta_1 = 0.5)$, batch size 256, 60 epoch trên CPU. Checkpoint $G$ được lưu tại `output/G_final.pth` và tái sử dụng cho mọi khảo sát phía sau.
 
 ```python
 class Generator(nn.Module):
@@ -42,7 +42,7 @@ class Generator(nn.Module):
         return self.net(z).view(-1, 1, 28, 28)
 ```
 
-![Hình 1. 64 ảnh ngẫu nhiên do $G$ sinh sau huấn luyện.](output_lab2/gan_samples.png)
+![Hình 1. 64 ảnh ngẫu nhiên do $G$ sinh sau huấn luyện.](output/gan_samples.png)
 
 ## 3. Detector
 
@@ -76,7 +76,7 @@ $$
 | Linear interpolation | 0.0533 | 0.0271 |
 | SLERP                | 0.0550 | 0.0290 |
 
-![Hình 2. Khảo sát 1 — Latent walk. Hàng trên: Linear, hàng dưới: SLERP. Số $\alpha$ ở mỗi cột.](output_lab2/survey1_latent_walk.png)
+![Hình 2. Khảo sát 1 — Latent walk. Hàng trên: Linear, hàng dưới: SLERP. Số $\alpha$ ở mỗi cột.](output/survey1_latent_walk.png)
 
 **Phân tích.** Cả hai phương pháp đều cho walk mượt: ảnh sinh ra biến đổi liên tục từ một chữ số sang chữ số khác (ví dụ chữ "3" $\to$ "8") qua các trạng thái trung gian có nét vẽ lai. Điều này khẳng định không gian ẩn của GAN có cấu trúc semantic liên tục — tính chất nền tảng cho mọi ứng dụng image editing dùng GAN.
 
@@ -111,7 +111,7 @@ def saliency_map(model, x):
 | Thật (real)  | 0.03862 | 0.397 |
 | Giả (fake)   | 0.00005 | 0.347 |
 
-![Hình 3. Khảo sát 2 — Saliency overlay. Hàng 1–2: ảnh thật và saliency. Hàng 3–4: ảnh giả và saliency. Vùng đỏ = pixel quan trọng.](output_lab2/survey2_saliency.png)
+![Hình 3. Khảo sát 2 — Saliency overlay. Hàng 1–2: ảnh thật và saliency. Hàng 3–4: ảnh giả và saliency. Vùng đỏ = pixel quan trọng.](output/survey2_saliency.png)
 
 **Phân tích.**
 
@@ -150,9 +150,9 @@ Quét $\varepsilon \in \{0, 0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.30\}$ trên $1
 
 Hệ số Pearson giữa $S(x)$ (saliency trước attack) và $|\delta|$ (perturbation): $r = 0.316$.
 
-![Hình 4. Khảo sát 3 — Detector accuracy và độ tự tin theo $\varepsilon$.](output_lab2/survey3_attack_curve.png)
+![Hình 4. Khảo sát 3 — Detector accuracy và độ tự tin theo $\varepsilon$.](output/survey3_attack_curve.png)
 
-![Hình 5. Khảo sát 3 — Trước/sau PGD ($\varepsilon = 0.10$). Cột 1: ảnh gốc. Cột 2: saliency trên ảnh gốc. Cột 3: ảnh sau attack. Cột 4: saliency sau attack. Cột 5: perturbation (thang seismic).](output_lab2/survey3_saliency_change.png)
+![Hình 5. Khảo sát 3 — Trước/sau PGD ($\varepsilon = 0.10$). Cột 1: ảnh gốc. Cột 2: saliency trên ảnh gốc. Cột 3: ảnh sau attack. Cột 4: saliency sau attack. Cột 5: perturbation (thang seismic).](output/survey3_saliency_change.png)
 
 **Phân tích.**
 

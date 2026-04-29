@@ -18,7 +18,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-OUT_DIR = "output_lab2"
+OUT_DIR = "output"
+DATA_DIR = "../data"
 os.makedirs(OUT_DIR, exist_ok=True)
 LOG_FILE = open(os.path.join(OUT_DIR, "results.txt"), "w", encoding="utf-8")
 
@@ -44,7 +45,7 @@ np.random.seed(SEED)
 log(f"Device: {DEVICE}  Z_DIM={Z_DIM}  BATCH={BATCH_SIZE}")
 
 tf = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
-train_set = datasets.MNIST("data", train=True, download=True, transform=tf)
+train_set = datasets.MNIST(DATA_DIR, train=True, download=True, transform=tf)
 loader    = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, drop_last=True)
 log(f"Dataset: MNIST  {len(train_set)} samples\n")
 

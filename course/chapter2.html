@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 2: AI and Machine Learning - Math for AI</title>
+  <link rel="stylesheet" href="style.css">
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]']]
+      }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+</head>
+<body>
+<div class="progress-bar" id="progressBar"></div>
+<div class="page-wrapper">
+
+  <nav class="top-nav">
+    <a href="index.html" class="nav-brand">Math for AI</a>
+    <a href="index.html">Home</a>
+    <a href="chapter1.html">Ch 1</a>
+    <a href="chapter2.html" class="active">Ch 2</a>
+    <a href="chapter3.html">Ch 3</a>
+  </nav>
+
+  <div class="content">
+
+    <div class="chapter-header">
+      <div class="ch-label">Chapter 02</div>
+      <h1>AI and Machine Learning</h1>
+      <p class="ch-desc">
+        How machines learn patterns from data. From linear regression
+        to neural networks, perceptrons to deep learning architectures
+        like CNN, RNN, and LSTM.
+      </p>
+    </div>
+
+    <!-- TABLE OF CONTENTS -->
+    <div class="toc">
+      <div class="toc-title">Table of Contents</div>
+      <ol>
+        <li><a href="#ml-intro">What is Machine Learning?</a></li>
+        <li><a href="#optimization-setup">Setting Up the Optimization Problem</a></li>
+        <li><a href="#modeling-optimization">Modeling as Optimization</a></li>
+        <li><a href="#convexifying">Convexifying the Loss Function</a></li>
+        <li><a href="#linear-regression">Linear Regression</a></li>
+        <li><a href="#data-testing">Data Testing (OLS)</a></li>
+        <li><a href="#neural-networks">Neural Networks</a></li>
+        <li><a href="#perceptron">Perceptron</a></li>
+        <li><a href="#activation-functions">Activation Functions</a></li>
+        <li><a href="#perceptron-learning">Perceptron Learning (Backpropagation)</a></li>
+        <li><a href="#multi-output">Multi-Output Perceptron</a></li>
+        <li><a href="#perceptron-limits">Perceptron Limitations</a></li>
+        <li><a href="#multi-layer">Multi-Layer Network</a></li>
+        <li><a href="#backprop-multi">Backpropagation for Multi-Layer Networks</a></li>
+        <li><a href="#quickprop">Adaptive Learning (QuickProp)</a></li>
+        <li><a href="#semi-static">Semi-Static Neural Network (T-NN)</a></li>
+        <li><a href="#deep-learning">Deep Learning</a></li>
+        <li><a href="#deep-nn">Deep Neural Networks</a></li>
+        <li><a href="#cnn">Convolutional Neural Networks (CNN)</a></li>
+        <li><a href="#rnn">Recurrent Neural Networks (RNN)</a></li>
+        <li><a href="#lstm">Long Short-Term Memory (LSTM)</a></li>
+      </ol>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 1: WHAT IS MACHINE LEARNING? -->
+    <!-- ============================================================ -->
+    <div class="section" id="ml-intro">
+      <h2>1. What is Machine Learning?</h2>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          <strong>Machine Learning (ML)</strong> is a method of solving problems where the solution
+          is not pre-programmed by a human. Instead, the model accumulates knowledge from
+          <strong>observation data</strong> and uses that knowledge to make decisions or predictions.
+        </p>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why it exists</span>
+        <p>
+          Many real-world problems are too complex to solve with hand-written rules. Consider
+          recognizing faces, translating languages, or predicting stock prices. The relationships
+          involved are so intricate that no human could write explicit rules for them. ML exists
+          because it lets data reveal the rules automatically.
+        </p>
+      </div>
+
+      <h3>Data Representation</h3>
+
+      <p>
+        All ML starts with data. The data is represented as a set of observations, where each
+        observation is a pair of an <strong>input</strong> and an <strong>output</strong>:
+      </p>
+
+      <div class="math-block">
+        \[
+        \Omega = \{(\mathbf{x}^{(i)}, y^{(i)})\}_{i=1}^{N}
+        \]
+      </div>
+
+      <p>Here:</p>
+      <ul>
+        <li>\(\mathbf{x}^{(i)} \in D \subset \mathbb{R}^n\) is the <strong>feature vector</strong> (also called independent variables). It is a list of \(n\) numbers that describe the input. For example, if predicting house price, the features might be square footage, number of bedrooms, and age of the house.</li>
+        <li>\(y^{(i)} \in \mathbb{R}\) is the <strong>label</strong> (also called the dependent variable). It is the output we want to predict. In the house example, this is the price.</li>
+        <li>\(N\) is the total number of observations.</li>
+      </ul>
+
+      <h3>The Goal of ML</h3>
+
+      <div class="concept-box">
+        <span class="box-label">Core Goal</span>
+        <p>
+          Find a function \(f: D \to \mathbb{R}\) that models the observed data, meaning:
+        </p>
+        <div class="math-block">
+          \[
+          f(\mathbf{x}) = y \quad \text{for all } (\mathbf{x}, y) \in \Omega
+          \]
+        </div>
+        <p>
+          But there is a critical additional requirement: the function must also <strong>generalize</strong>.
+          That means it must correctly predict outputs for data it has never seen before &mdash;
+          inputs \((\mathbf{x}, f(\mathbf{x})) \notin \Omega\).
+        </p>
+      </div>
+
+      <div class="important-box">
+        <span class="box-label">Important</span>
+        <p>
+          A model that perfectly memorizes the training data but fails on new data is useless.
+          Generalization is the entire point of machine learning. Everything that follows in this
+          chapter &mdash; loss functions, regularization, train/test splits &mdash; exists to achieve
+          good generalization.
+        </p>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 2: SETTING UP THE OPTIMIZATION PROBLEM -->
+    <!-- ============================================================ -->
+    <div class="section" id="optimization-setup">
+      <h2>2. Setting Up the Optimization Problem</h2>
+
+      <div class="why-box">
+        <span class="box-label">Why this step is needed</span>
+        <p>
+          The goal "find some function \(f\) that fits the data" is too vague. There are infinitely
+          many possible functions. We need to narrow the search space to make the problem solvable.
+        </p>
+      </div>
+
+      <h3>Parameterized Function Families</h3>
+
+      <p>
+        Instead of searching over all possible functions, we choose a <strong>family of functions</strong>
+        that are parameterized by a vector of weights \(\mathbf{w} \in \mathbb{R}^m\). We write
+        the function as \(f_{\mathbf{w}}\) to show that it depends on \(\mathbf{w}\).
+      </p>
+
+      <div class="concept-box">
+        <span class="box-label">Key Idea</span>
+        <p>
+          The search for the best function becomes a search for the best weights \(\mathbf{w}\).
+          This converts an impossible problem (searching over all functions) into a concrete
+          numerical problem (searching over a vector of numbers).
+        </p>
+      </div>
+
+      <h3>Error Criterion</h3>
+
+      <p>
+        We want the model's predictions to be close to the actual values. Specifically, we require:
+      </p>
+
+      <div class="math-block">
+        \[
+        |f_{\mathbf{w}}(\mathbf{x}) - y| \leq \varepsilon \quad \text{for all } (\mathbf{x}, y) \in \Omega
+        \]
+      </div>
+
+      <p>
+        where \(\varepsilon\) is the maximum allowed error per data point. Since we have \(N\) data
+        points, we measure the overall model error as the <strong>average error</strong> across all
+        observations:
+      </p>
+
+      <div class="math-block">
+        \[
+        \frac{1}{N} \sum_{i=1}^{N} |f_{\mathbf{w}}(\mathbf{x}^{(i)}) - y^{(i)}| \leq \varepsilon
+        \]
+      </div>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          The <strong>model error</strong> is the average absolute difference between the model's
+          predictions and the actual observed values, taken over the entire training dataset.
+        </p>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 3: MODELING AS OPTIMIZATION -->
+    <!-- ============================================================ -->
+    <div class="section" id="modeling-optimization">
+      <h2>3. Modeling as Optimization</h2>
+
+      <div class="why-box">
+        <span class="box-label">Why this matters</span>
+        <p>
+          By expressing ML as an optimization problem, we can use all the mathematical tools from
+          Chapter 1 (gradient descent, convex optimization, etc.) to find the best model.
+        </p>
+      </div>
+
+      <h3>The Loss Function</h3>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          The <strong>loss function</strong> (also called cost function or objective function) measures
+          how far the model's predictions are from the actual data. It is a function of the weights
+          \(\mathbf{w}\):
+        </p>
+        <div class="math-block">
+          \[
+          L(\mathbf{w}) = \frac{1}{N} \sum_{i=1}^{N} |f_{\mathbf{w}}(\mathbf{x}^{(i)}) - y^{(i)}|
+          \]
+        </div>
+      </div>
+
+      <h3>The Optimization Goal</h3>
+
+      <p>
+        We want the weights that make the loss as small as possible:
+      </p>
+
+      <div class="math-block">
+        \[
+        \mathbf{w}^* = \arg\min_{\mathbf{w}} L(\mathbf{w})
+        \]
+      </div>
+
+      <div class="concept-box">
+        <span class="box-label">Key Insight</span>
+        <p>
+          This is now a standard optimization problem. The notation \(\arg\min\) means "the value
+          of \(\mathbf{w}\) that minimizes \(L\)." We have converted machine learning into
+          the optimization framework from Chapter 1. The loss function is the objective function,
+          and the weights are the variables we optimize over.
+        </p>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 4: CONVEXIFYING THE LOSS FUNCTION -->
+    <!-- ============================================================ -->
+    <div class="section" id="convexifying">
+      <h2>4. Convexifying the Loss Function</h2>
+
+      <div class="why-box">
+        <span class="box-label">Why convexify?</span>
+        <p>
+          The absolute value \(|f_{\mathbf{w}}(\mathbf{x}) - y|\) is not differentiable at zero,
+          which makes optimization harder. By switching to a squared error, we get a smooth,
+          convex function that has a unique minimum and can be solved exactly.
+        </p>
+      </div>
+
+      <h3>Matrix Notation</h3>
+
+      <p>
+        To work with all data points at once, we stack them into matrices and vectors:
+      </p>
+
+      <ul>
+        <li>Stack all input vectors \(\mathbf{x}^{(1)}, \ldots, \mathbf{x}^{(N)}\) as rows of a matrix \(A \in \mathbb{R}^{N \times n}\).</li>
+        <li>Stack all labels \(y^{(1)}, \ldots, y^{(N)}\) into a vector \(B \in \mathbb{R}^N\).</li>
+      </ul>
+
+      <p>
+        If the model is linear &mdash; \(f_{\mathbf{w}}(\mathbf{x}) = \mathbf{x} \cdot \mathbf{w}\) &mdash; then the
+        predictions for all data points are \(A\mathbf{w}\), and the squared loss function becomes:
+      </p>
+
+      <div class="math-block">
+        \[
+        L(\mathbf{w}) = \|A\mathbf{w} - B\|^2
+        \]
+      </div>
+
+      <h3>Theorem: Closed-Form Solution</h3>
+
+      <div class="def-box">
+        <span class="box-label">Theorem</span>
+        <p>
+          If \(\text{Rank}(A) = n\) (meaning the columns of \(A\) are linearly independent), then
+          the loss function \(L(\mathbf{w}) = \|A\mathbf{w} - B\|^2\) has a unique minimum at:
+        </p>
+        <div class="math-block">
+          \[
+          \mathbf{w}^* = (A^T A)^{-1} A^T B
+          \]
+        </div>
+      </div>
+
+      <h3>Proof</h3>
+
+      <div class="step-box">
+        <span class="box-label">Step 1 &mdash; Expand the Loss</span>
+        <p>Expand \(L(\mathbf{w})\) by writing out the squared norm:</p>
+        <div class="math-block">
+          \[
+          L(\mathbf{w}) = (A\mathbf{w} - B)^T(A\mathbf{w} - B)
+          = \mathbf{w}^T A^T A \mathbf{w} - 2B^T A \mathbf{w} + B^T B
+          \]
+        </div>
+      </div>
+
+      <div class="step-box">
+        <span class="box-label">Step 2 &mdash; Compute the Gradient</span>
+        <p>Take the derivative with respect to \(\mathbf{w}\):</p>
+        <div class="math-block">
+          \[
+          \nabla L(\mathbf{w}) = 2(A^T A)\mathbf{w} - 2A^T B
+          \]
+        </div>
+      </div>
+
+      <div class="step-box">
+        <span class="box-label">Step 3 &mdash; Compute the Hessian</span>
+        <p>The second derivative (Hessian matrix) is:</p>
+        <div class="math-block">
+          \[
+          \nabla^2 L(\mathbf{w}) = 2(A^T A)
+          \]
+        </div>
+        <p>
+          The matrix \(A^T A\) is always positive semidefinite (for any vector \(\mathbf{v}\),
+          \(\mathbf{v}^T A^T A \mathbf{v} = \|A\mathbf{v}\|^2 \geq 0\)). When \(\text{Rank}(A) = n\),
+          it is positive definite. This confirms that \(L\) is <strong>convex</strong>, so any
+          critical point is a global minimum.
+        </p>
+      </div>
+
+      <div class="step-box">
+        <span class="box-label">Step 4 &mdash; Solve for the Minimum</span>
+        <p>Set the gradient to zero and solve:</p>
+        <div class="math-block">
+          \[
+          2(A^T A)\mathbf{w} - 2A^T B = 0
+          \quad \Longrightarrow \quad
+          \mathbf{w}^* = (A^T A)^{-1} A^T B
+          \]
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 5: LINEAR REGRESSION -->
+    <!-- ============================================================ -->
+    <div class="section" id="linear-regression">
+      <h2>5. Linear Regression</h2>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          <strong>Linear regression</strong> is the simplest ML model. It assumes the output is a
+          linear combination of the input features:
+        </p>
+        <div class="math-block">
+          \[
+          f_{\mathbf{w}}(\mathbf{x}) = w_1 x_1 + w_2 x_2 + \cdots + w_n x_n
+          \]
+        </div>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why it exists</span>
+        <p>
+          Linear regression is the starting point of ML because it has a closed-form solution
+          (no iterative optimization needed), it is fast to compute, easy to understand, and works
+          well when the relationship between inputs and output is approximately linear.
+        </p>
+      </div>
+
+      <h3>Adding a Bias Term</h3>
+
+      <p>
+        The model above forces the prediction to be zero when all inputs are zero. Usually we want
+        a <strong>bias</strong> (also called intercept) \(w_0\):
+      </p>
+
+      <div class="math-block">
+        \[
+        f_{\mathbf{w}}(\mathbf{x}) = w_0 + w_1 x_1 + w_2 x_2 + \cdots + w_n x_n
+        \]
+      </div>
+
+      <p>
+        To keep the matrix notation clean, we extend each input vector by prepending a 1:
+        \(\mathbf{x} \to [1, x_1, x_2, \ldots, x_n]\), and extend the weight vector to include
+        \(w_0\): \(\mathbf{w} = [w_0, w_1, \ldots, w_n]^T\). Now the model is still
+        \(f_{\mathbf{w}}(\mathbf{x}) = \mathbf{x} \cdot \mathbf{w}\), and the solution remains:
+      </p>
+
+      <div class="math-block">
+        \[
+        \mathbf{w} = (A^T A)^{-1} A^T B
+        \]
+      </div>
+
+      <p>where \(A\) now has a column of ones as its first column.</p>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 6: DATA TESTING (OLS) -->
+    <!-- ============================================================ -->
+    <div class="section" id="data-testing">
+      <h2>6. Data Testing (Ordinary Least Squares)</h2>
+
+      <div class="why-box">
+        <span class="box-label">Why this step is needed</span>
+        <p>
+          If the true relationship between inputs and output is non-linear, then linear regression
+          will produce large errors no matter what weights you choose. You need a way to handle
+          non-linear relationships while still using the linear regression machinery.
+        </p>
+      </div>
+
+      <h3>Basis Function Transformation</h3>
+
+      <div class="concept-box">
+        <span class="box-label">Key Idea</span>
+        <p>
+          Transform the original features using <strong>basis functions</strong>
+          \(f_1(\mathbf{x}), f_2(\mathbf{x}), \ldots, f_p(\mathbf{x})\). These are functions you
+          choose that create new features from the originals. After the transformation, apply linear
+          regression to the new features.
+        </p>
+      </div>
+
+      <p>
+        Define the transformation:
+      </p>
+
+      <div class="math-block">
+        \[
+        T(\mathbf{x}) = \big(f_1(\mathbf{x}),\; f_2(\mathbf{x}),\; \ldots,\; f_p(\mathbf{x})\big)
+        \]
+      </div>
+
+      <p>
+        Then apply linear regression to the transformed data. The model becomes:
+      </p>
+
+      <div class="math-block">
+        \[
+        \hat{y} = w_1 f_1(\mathbf{x}) + w_2 f_2(\mathbf{x}) + \cdots + w_p f_p(\mathbf{x})
+        \]
+      </div>
+
+      <p>
+        This is still linear in the weights \(\mathbf{w}\), so the closed-form solution
+        \(\mathbf{w} = (A^T A)^{-1} A^T B\) still applies &mdash; but now the matrix \(A\) has
+        entries \(A_{ij} = f_j(\mathbf{x}^{(i)})\).
+      </p>
+
+      <h3>The Workflow</h3>
+
+      <div class="step-box">
+        <span class="box-label">Step 1</span>
+        <p>Choose basis functions \(f_1, \ldots, f_p\) based on your understanding of the data.</p>
+      </div>
+      <div class="step-box">
+        <span class="box-label">Step 2</span>
+        <p>Transform all data points: replace each \(\mathbf{x}^{(i)}\) with \(T(\mathbf{x}^{(i)})\).</p>
+      </div>
+      <div class="step-box">
+        <span class="box-label">Step 3</span>
+        <p>Run linear regression on the transformed data to find the optimal weights.</p>
+      </div>
+      <div class="step-box">
+        <span class="box-label">Step 4</span>
+        <p>Compute the error. If it is too large, go back to Step 1 and choose different basis functions.</p>
+      </div>
+
+      <div class="important-box">
+        <span class="box-label">Important</span>
+        <p>
+          Choosing the right basis functions is the hardest part. It requires <strong>domain
+          knowledge</strong> &mdash; understanding of the problem area. For example, if you suspect
+          the data follows a quadratic trend, you might use \(f_1(x) = x\) and \(f_2(x) = x^2\).
+          If you suspect periodic behavior, you might use \(f_1(x) = \sin(x)\) and
+          \(f_2(x) = \cos(x)\). There is no automatic way to choose &mdash; this is where human
+          expertise enters.
+        </p>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 7: NEURAL NETWORKS -->
+    <!-- ============================================================ -->
+    <div class="section" id="neural-networks">
+      <h2>7. Neural Networks</h2>
+
+      <div class="why-box">
+        <span class="box-label">Why neural networks exist</span>
+        <p>
+          The basis function approach from Section 6 requires a human expert to choose the right
+          transformations. Neural networks exist because they can <strong>learn the basis functions
+          automatically</strong> from data, removing the need for domain expertise in feature
+          engineering.
+        </p>
+      </div>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          A <strong>neural network</strong> is a computational graph made of <strong>nodes</strong>
+          (called neurons) connected by <strong>weighted edges</strong>. Each neuron receives inputs,
+          multiplies them by weights, sums the results, and passes the sum through a function
+          to produce an output.
+        </p>
+      </div>
+
+      <h3>The Simplest Neural Network (2-Layer)</h3>
+
+      <p>
+        A 2-layer neural network has input nodes and one output node. Each input \(x_i\) is connected
+        to the output by a weight \(w_i\). The output is:
+      </p>
+
+      <div class="math-block">
+        \[
+        y = w_0 + \sum_{i=1}^{n} w_i x_i
+        \]
+      </div>
+
+      <p>
+        This is exactly linear regression. The simplest neural network <em>is</em> linear regression.
+        To handle non-linear relationships, we need additional components: more layers and
+        non-linear activation functions (covered in the following sections).
+      </p>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 8: PERCEPTRON -->
+    <!-- ============================================================ -->
+    <div class="section" id="perceptron">
+      <h2>8. Perceptron</h2>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          A <strong>perceptron</strong> is the simplest neural network that makes binary decisions.
+          It has one output neuron that classifies input into one of two categories: 0 or 1
+          (false or true, no or yes).
+        </p>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why it exists</span>
+        <p>
+          Many problems require a yes/no answer rather than a continuous number: Is this email
+          spam? Does this image contain a cat? Is this transaction fraudulent? The perceptron is
+          the simplest model that can make such binary decisions.
+        </p>
+      </div>
+
+      <h3>How it Works (Forward Pass)</h3>
+
+      <div class="step-box">
+        <span class="box-label">Step 1 &mdash; Compute the weighted sum</span>
+        <div class="math-block">
+          \[
+          t = w_0 + \sum_{i=1}^{n} w_i x_i
+          \]
+        </div>
+      </div>
+
+      <div class="step-box">
+        <span class="box-label">Step 2 &mdash; Apply the threshold</span>
+        <div class="math-block">
+          \[
+          y = \begin{cases} 1 & \text{if } t > \text{threshold} \\ 0 & \text{otherwise} \end{cases}
+          \]
+        </div>
+      </div>
+
+      <p>
+        The weights \(\mathbf{w}\) are learned from training data. During training, the network
+        sees examples with known labels and adjusts the weights to make correct predictions.
+      </p>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 9: ACTIVATION FUNCTIONS -->
+    <!-- ============================================================ -->
+    <div class="section" id="activation-functions">
+      <h2>9. Activation Functions</h2>
+
+      <div class="why-box">
+        <span class="box-label">Why activation functions are needed</span>
+        <p>
+          The perceptron uses a step function (output is either 0 or 1, with a sharp jump). This
+          step function is <strong>not differentiable</strong> at the threshold point. Since
+          gradient-based learning requires computing derivatives, we cannot train the perceptron
+          using gradients if we keep the step function. We need a smooth replacement.
+        </p>
+      </div>
+
+      <h3>Sigmoid Functions</h3>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          A <strong>sigmoid function</strong> \(s: \mathbb{R} \to \mathbb{R}\) is any function that
+          is continuous, bounded (output stays within a fixed range), and smooth (differentiable
+          everywhere). It produces an S-shaped curve that transitions gradually from one value to
+          another.
+        </p>
+      </div>
+
+      <h3>The Logistic Function</h3>
+
+      <p>
+        The most commonly used sigmoid is the <strong>logistic function</strong>:
+      </p>
+
+      <div class="math-block">
+        \[
+        g(u) = \frac{1}{1 + e^{-u}}
+        \]
+      </div>
+
+      <p>Properties of the logistic function:</p>
+      <ul>
+        <li>It maps any real number to the interval \((0, 1)\).</li>
+        <li>When \(u\) is very negative, \(g(u) \approx 0\). When \(u\) is very positive, \(g(u) \approx 1\).</li>
+        <li>At \(u = 0\), \(g(0) = 0.5\).</li>
+        <li>It transitions smoothly, so it has derivatives everywhere.</li>
+      </ul>
+
+      <h3>Key Property: Self-Referential Derivative</h3>
+
+      <div class="important-box">
+        <span class="box-label">Important</span>
+        <p>
+          The derivative of the logistic function can be expressed using the function's own output:
+        </p>
+        <div class="math-block">
+          \[
+          g'(u) = g(u)(1 - g(u))
+          \]
+        </div>
+        <p>
+          This is extremely useful for computation. During the forward pass we already compute
+          \(g(u)\). To compute the derivative (needed for learning), we just multiply
+          \(g(u) \times (1 - g(u))\) &mdash; no additional expensive computation required.
+        </p>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 10: PERCEPTRON LEARNING -->
+    <!-- ============================================================ -->
+    <div class="section" id="perceptron-learning">
+      <h2>10. Perceptron Learning (Backpropagation for a Single Neuron)</h2>
+
+      <div class="why-box">
+        <span class="box-label">Why this matters</span>
+        <p>
+          This section shows the fundamental mechanism that all neural network training is built on:
+          computing how much each weight contributed to the error, then adjusting it proportionally.
+          Understanding this for a single neuron makes it possible to understand deeper networks.
+        </p>
+      </div>
+
+      <h3>Forward Pass</h3>
+
+      <p>With the sigmoid activation, the perceptron computes:</p>
+
+      <div class="math-block">
+        \[
+        z = g\!\left(w_0 + \sum_{i=1}^{n} w_i x_i\right)
+        \]
+      </div>
+
+      <h3>Loss Function</h3>
+
+      <p>
+        We use the <strong>mean squared error</strong> over all training data:
+      </p>
+
+      <div class="math-block">
+        \[
+        L(\mathbf{w}) = \frac{1}{2N} \sum_{i=1}^{N} \big(F_{\mathbf{w}}(\mathbf{x}^{(i)}) - y^{(i)}\big)^2
+        \]
+      </div>
+
+      <p>The factor of \(\frac{1}{2}\) is included to make the derivative cleaner.</p>
+
+      <h3>Gradient Computation via Chain Rule</h3>
+
+      <div class="concept-box">
+        <span class="box-label">Chain Rule Application</span>
+        <p>
+          To find how the loss changes when we adjust weight \(w_i\), we break the computation
+          into a chain of simpler steps. Define \(u = w_0 + \sum w_i x_i\) and \(z = g(u)\). Then:
+        </p>
+        <div class="math-block">
+          \[
+          \frac{\partial L}{\partial w_i} =
+          \frac{\partial L}{\partial z} \cdot
+          \frac{\partial z}{\partial u} \cdot
+          \frac{\partial u}{\partial w_i}
+          \]
+        </div>
+      </div>
+
+      <p>Computing each piece:</p>
+
+      <div class="step-box">
+        <span class="box-label">Piece 1</span>
+        <p>\(\dfrac{\partial L}{\partial z} = z - y\) &mdash; how much the loss changes when the output changes.</p>
+      </div>
+
+      <div class="step-box">
+        <span class="box-label">Piece 2</span>
+        <p>\(\dfrac{\partial z}{\partial u} = z(1 - z)\) &mdash; the derivative of the sigmoid (using the self-referential property).</p>
+      </div>
+
+      <div class="step-box">
+        <span class="box-label">Piece 3</span>
+        <p>\(\dfrac{\partial u}{\partial w_i} = x_i\) for regular weights, or \(1\) for the bias \(w_0\).</p>
+      </div>
+
+      <h3>Weight Update Rule</h3>
+
+      <p>
+        Using the gradient, we update each weight by moving in the opposite direction of the gradient,
+        scaled by a <strong>learning rate</strong> \(\alpha\):
+      </p>
+
+      <div class="math-block">
+        \[
+        \mathbf{w} \leftarrow \mathbf{w} + \alpha \cdot \Delta
+        \]
+      </div>
+
+      <p>
+        where \(\Delta_i\) depends on the product \((z - y) \cdot z(1 - z) \cdot x_i\) for each weight.
+      </p>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 11: MULTI-OUTPUT PERCEPTRON -->
+    <!-- ============================================================ -->
+    <div class="section" id="multi-output">
+      <h2>11. Multi-Output Perceptron</h2>
+
+      <div class="why-box">
+        <span class="box-label">Why multiple outputs?</span>
+        <p>
+          A single perceptron outputs one number (0 or 1), which can classify into 2 categories.
+          For problems with \(k\) categories (e.g., classifying handwritten digits 0&ndash;9), we need
+          multiple output neurons.
+        </p>
+      </div>
+
+      <div class="concept-box">
+        <span class="box-label">Structure</span>
+        <p>
+          For \(k\) classes, use \(m\) output neurons (where \(m\) is enough to encode \(k\) classes
+          as binary strings). The labels are encoded as binary vectors. The weight matrix becomes
+          \(\mathbf{W} \in \mathbb{R}^{(n+1) \times m}\), where each column corresponds to one
+          output neuron.
+        </p>
+      </div>
+
+      <h3>Error Gradient</h3>
+
+      <p>
+        The gradient for each weight \(w_{ij}\) (connecting input \(i\) to output \(j\)) follows
+        the same pattern as the single-neuron case:
+      </p>
+
+      <div class="math-block">
+        \[
+        \Delta_{0j} = (z_j - y_j) \cdot z_j(1 - z_j)
+        \]
+      </div>
+      <div class="math-block">
+        \[
+        \Delta_{ij} = (z_j - y_j) \cdot z_j(1 - z_j) \cdot x_i
+        \]
+      </div>
+
+      <p>
+        The first equation is for the bias weight (input is always 1). The second is for a regular
+        weight connecting input \(x_i\) to output neuron \(j\).
+      </p>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 12: PERCEPTRON LIMITATIONS -->
+    <!-- ============================================================ -->
+    <div class="section" id="perceptron-limits">
+      <h2>12. Perceptron Limitations</h2>
+
+      <div class="important-box">
+        <span class="box-label">Critical Limitation</span>
+        <p>
+          A single-layer perceptron can only solve <strong>linearly separable</strong> problems.
+          A problem is linearly separable if you can draw a straight line (or hyperplane in higher
+          dimensions) that separates the two classes.
+        </p>
+      </div>
+
+      <h3>Linearly Separable: AND and OR</h3>
+
+      <p>
+        The AND function (output 1 only when both inputs are 1) and the OR function (output 1 when
+        at least one input is 1) are linearly separable. A single line can separate the 1-outputs
+        from the 0-outputs in each case.
+      </p>
+
+      <h3>Not Linearly Separable: XOR</h3>
+
+      <p>
+        The XOR function (output 1 when inputs differ) is <strong>not</strong> linearly separable.
+        No single straight line can separate the points (0,0), (1,1) (which output 0) from
+        (0,1), (1,0) (which output 1). A single perceptron simply cannot learn XOR.
+      </p>
+
+      <h3>Two Solutions</h3>
+
+      <div class="concept-box">
+        <span class="box-label">Solution A &mdash; Add Hidden Layers</span>
+        <p>
+          Add one or more <strong>hidden layers</strong> of neurons between the input and output.
+          This creates a multi-layer network that can represent non-linear decision boundaries.
+          This is covered in Section 13.
+        </p>
+      </div>
+
+      <div class="concept-box">
+        <span class="box-label">Solution B &mdash; Feature Engineering</span>
+        <p>
+          Use domain knowledge to create new features that make the problem linearly separable.
+          For example, adding the feature \(x_1 \cdot x_2\) to XOR makes it solvable by a
+          single perceptron. This approach is formalized as the semi-static neural network
+          in Section 16.
+        </p>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 13: MULTI-LAYER NETWORK -->
+    <!-- ============================================================ -->
+    <div class="section" id="multi-layer">
+      <h2>13. Multi-Layer Network (3-Layer Feed-Forward)</h2>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          A <strong>3-layer feed-forward neural network</strong> consists of:
+        </p>
+        <ul>
+          <li><strong>Input layer</strong>: \(n\) nodes (one per input feature, plus a bias node).</li>
+          <li><strong>Hidden layer</strong>: \(J\) neurons that compute intermediate representations.</li>
+          <li><strong>Output layer</strong>: \(m\) neurons that produce the final predictions.</li>
+        </ul>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why hidden layers matter</span>
+        <p>
+          Hidden layers allow the network to learn non-linear functions. Each hidden neuron applies
+          a non-linear activation to a linear combination of inputs. Combining multiple such neurons
+          creates a rich space of possible functions that can approximate complex relationships.
+        </p>
+      </div>
+
+      <h3>Parameters</h3>
+
+      <ul>
+        <li>Matrix \(A \in \mathbb{R}^{(n+1) \times J}\) &mdash; weights from input to hidden layer.</li>
+        <li>Matrix \(B \in \mathbb{R}^{(J+1) \times m}\) &mdash; weights from hidden to output layer.</li>
+      </ul>
+
+      <p>The "+1" accounts for the bias node at each layer.</p>
+
+      <h3>Forward Pass</h3>
+
+      <div class="step-box">
+        <span class="box-label">Step 1 &mdash; Input to Hidden</span>
+        <p>Compute hidden layer activations by applying sigmoid element-wise:</p>
+        <div class="math-block">
+          \[
+          \mathbf{t} = G(A^T \mathbf{x})
+          \]
+        </div>
+        <p>where \(G\) applies the sigmoid function \(g\) to each element independently.</p>
+      </div>
+
+      <div class="step-box">
+        <span class="box-label">Step 2 &mdash; Hidden to Output</span>
+        <p>Compute output layer activations:</p>
+        <div class="math-block">
+          \[
+          \mathbf{z} = G(B^T \mathbf{t})
+          \]
+        </div>
+        <p>where \(\mathbf{t}\) is extended with a bias term (prepend 1) before multiplication.</p>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 14: BACKPROPAGATION FOR MULTI-LAYER -->
+    <!-- ============================================================ -->
+    <div class="section" id="backprop-multi">
+      <h2>14. Backpropagation for Multi-Layer Networks</h2>
+
+      <div class="why-box">
+        <span class="box-label">Why this is the central algorithm</span>
+        <p>
+          Backpropagation is the algorithm that makes training deep networks possible. It efficiently
+          computes how each weight in every layer contributes to the overall error, by propagating
+          error signals backward from the output to the input.
+        </p>
+      </div>
+
+      <h3>Gradients for Output Weights (Matrix B)</h3>
+
+      <p>
+        The gradient for a weight \(b_{jk}\) connecting hidden neuron \(j\) to output neuron \(k\):
+      </p>
+
+      <div class="math-block">
+        \[
+        \frac{\partial E}{\partial b_{jk}} = p_k \cdot t_j
+        \]
+      </div>
+
+      <p>where the <strong>output error signal</strong> is:</p>
+
+      <div class="math-block">
+        \[
+        p_k = (z_k - y_k) \cdot z_k(1 - z_k)
+        \]
+      </div>
+
+      <p>This is the same formula as the single-neuron case from Section 10.</p>
+
+      <h3>Gradients for Hidden Weights (Matrix A)</h3>
+
+      <p>
+        The gradient for a weight \(a_{ij}\) connecting input \(i\) to hidden neuron \(j\):
+      </p>
+
+      <div class="math-block">
+        \[
+        \frac{\partial E}{\partial a_{ij}} = q_j \cdot x_i
+        \]
+      </div>
+
+      <p>where the <strong>hidden error signal</strong> is:</p>
+
+      <div class="math-block">
+        \[
+        q_j = \left(\sum_{k} p_k \cdot b_{jk}\right) \cdot t_j(1 - t_j)
+        \]
+      </div>
+
+      <div class="concept-box">
+        <span class="box-label">How to Read This</span>
+        <p>
+          The hidden error signal \(q_j\) has two parts multiplied together:
+        </p>
+        <ul>
+          <li>\(\sum_k p_k \cdot b_{jk}\): the sum of output errors weighted by the connections from hidden neuron \(j\) to each output neuron. This represents how much hidden neuron \(j\) contributed to the total output error.</li>
+          <li>\(t_j(1 - t_j)\): the derivative of the sigmoid at hidden neuron \(j\).</li>
+        </ul>
+        <p>
+          The error "flows backward" from outputs through the weights to the hidden layer &mdash;
+          hence the name <strong>backpropagation</strong>.
+        </p>
+      </div>
+
+      <h3>Weight Update</h3>
+
+      <div class="math-block">
+        \[
+        \mathbf{w} \leftarrow \mathbf{w} + \alpha \cdot \Delta
+        \]
+      </div>
+
+      <p>
+        where \(\alpha\) is the learning rate and \(\Delta\) contains the gradients computed above.
+      </p>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 15: QUICKPROP -->
+    <!-- ============================================================ -->
+    <div class="section" id="quickprop">
+      <h2>15. Adaptive Learning (QuickProp)</h2>
+
+      <div class="why-box">
+        <span class="box-label">Why adaptive learning?</span>
+        <p>
+          Standard gradient descent uses a fixed learning rate \(\alpha\). If \(\alpha\) is too large,
+          the training overshoots and oscillates. If \(\alpha\) is too small, training is extremely
+          slow. An adaptive method adjusts the effective step size automatically based on the
+          shape of the error surface.
+        </p>
+      </div>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          <strong>QuickProp</strong> is an adaptive learning method that uses a <strong>parabolic
+          approximation</strong> of the error surface. It estimates the optimal weight change by
+          fitting a parabola through the current and previous gradient values.
+        </p>
+      </div>
+
+      <h3>The Formula</h3>
+
+      <p>
+        QuickProp computes the weight change at step \(t\) using gradients from the current and
+        previous steps:
+      </p>
+
+      <div class="math-block">
+        \[
+        C^{(t)} = \frac{\Delta^{(t)} - \Delta^{(t+1)}}{\Delta^{(t-1)} - \Delta^{(t)}} \times C^{(t-1)}
+        \]
+      </div>
+
+      <p>
+        where \(\Delta^{(t)}\) is the gradient at step \(t\) and \(C^{(t)}\) is the actual weight
+        change applied. The ratio of gradient differences estimates the curvature of the error
+        surface, allowing larger steps in flat regions and smaller steps near minima.
+      </p>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 16: SEMI-STATIC NEURAL NETWORK -->
+    <!-- ============================================================ -->
+    <div class="section" id="semi-static">
+      <h2>16. Semi-Static Neural Network (T-NN)</h2>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          A <strong>semi-static neural network</strong> (T-NN) is a hybrid architecture where the
+          hidden layer weights are <strong>fixed</strong> (all set to 1) and the hidden layer applies
+          pre-defined basis functions. Only the output layer weights are learned during training.
+        </p>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why it exists</span>
+        <p>
+          It combines the strengths of two approaches: (1) the data fitting approach from Section 6
+          (using domain knowledge to choose basis functions) and (2) the perceptron learning approach
+          (learning weights from data). You get better control over what the network learns, while
+          still benefiting from automated weight optimization.
+        </p>
+      </div>
+
+      <h3>How it Works</h3>
+
+      <p>The hidden layer computes pre-defined transformations:</p>
+
+      <div class="math-block">
+        \[
+        \mathbf{t} = T(\mathbf{x}) = \big(f_1(\mathbf{x}),\; f_2(\mathbf{x}),\; \ldots,\; f_p(\mathbf{x})\big)
+        \]
+      </div>
+
+      <p>The output layer is a standard perceptron operating on the transformed features:</p>
+
+      <div class="math-block">
+        \[
+        \mathbf{z} = G(B \cdot \mathbf{t})
+        \]
+      </div>
+
+      <p>
+        Only the matrix \(B\) is learned. The transformation \(T\) is chosen by the human designer
+        and remains fixed.
+      </p>
+
+      <h3>Solving XOR with T-NN</h3>
+
+      <div class="example-box">
+        <span class="box-label">Example</span>
+        <p>
+          XOR cannot be solved by a single perceptron because it is not linearly separable. But if
+          we choose basis functions \(f_1(\mathbf{x}) = x_1\), \(f_2(\mathbf{x}) = x_2\), and
+          \(f_3(\mathbf{x}) = x_1 \cdot x_2\), the transformed data becomes linearly separable.
+          The perceptron on the transformed features can then learn XOR.
+        </p>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 17: DEEP LEARNING -->
+    <!-- ============================================================ -->
+    <div class="section" id="deep-learning">
+      <h2>17. Deep Learning</h2>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          <strong>Deep learning</strong> is machine learning using neural networks with many layers.
+          "Deep" refers to the depth of the network (many layers stacked), not a philosophical
+          statement. In practice, deep learning means: <strong>multi-layer neural networks trained
+          on large datasets</strong>.
+        </p>
+      </div>
+
+      <h3>Fitting vs. Generalization</h3>
+
+      <div class="concept-box">
+        <span class="box-label">Two Qualities of a Model</span>
+        <p>Every ML model has two performance measures:</p>
+        <ul>
+          <li><strong>Fitting</strong> (training accuracy): How well the model matches the training data.</li>
+          <li><strong>Generalization</strong> (test accuracy): How well the model performs on data it has never seen.</li>
+        </ul>
+        <p>These two can conflict with each other.</p>
+      </div>
+
+      <h3>The Overfitting Problem</h3>
+
+      <div class="important-box">
+        <span class="box-label">Overfitting</span>
+        <p>
+          Adding more hidden neurons improves fitting (the model can memorize more of the training
+          data). But at some point, the model starts memorizing noise and random patterns in the
+          training data that do not exist in the real world. This causes generalization to
+          <strong>decrease</strong>. This is called <strong>overfitting</strong>.
+        </p>
+      </div>
+
+      <h3>Solution: Train/Validation Split</h3>
+
+      <div class="step-box">
+        <span class="box-label">Procedure</span>
+        <p>Split the data into two disjoint sets:</p>
+        <ul>
+          <li>\(\Omega_{\text{train}}\): Used to update the weights during training.</li>
+          <li>\(\Omega_{\text{validation}}\): Never used during training. Used only to evaluate generalization.</li>
+        </ul>
+        <p>
+          During training, monitor the error on \(\Omega_{\text{validation}}\). <strong>Stop training
+          when the validation error stops decreasing</strong> (even if the training error is still
+          going down). This technique is called <strong>early stopping</strong>.
+        </p>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 18: DEEP NEURAL NETWORKS -->
+    <!-- ============================================================ -->
+    <div class="section" id="deep-nn">
+      <h2>18. Deep Neural Networks</h2>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          A <strong>deep neural network (DNN)</strong> is a neural network with many hidden layers
+          and many neurons per layer. "Many" typically means 3 or more hidden layers, though modern
+          networks can have hundreds.
+        </p>
+      </div>
+
+      <div class="concept-box">
+        <span class="box-label">Key Properties</span>
+        <ul>
+          <li><strong>Universal approximation</strong>: With enough neurons and enough data, a deep network can approximate any function to arbitrary accuracy.</li>
+          <li><strong>Hierarchical feature learning</strong>: Each layer learns increasingly abstract features. Early layers detect simple patterns; deeper layers combine these into complex concepts.</li>
+          <li><strong>Domain knowledge integration</strong>: The architecture of the network (how layers are connected, what operations they perform) can encode domain knowledge about the problem.</li>
+        </ul>
+      </div>
+
+      <p>
+        The following three sections cover three specialized DNN architectures, each designed
+        for a specific type of data.
+      </p>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 19: CNN -->
+    <!-- ============================================================ -->
+    <div class="section" id="cnn">
+      <h2>19. Convolutional Neural Networks (CNN)</h2>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          A <strong>Convolutional Neural Network (CNN)</strong> is a deep neural network designed
+          specifically for processing 2-dimensional data, most commonly images. It uses a special
+          operation called <strong>convolution</strong> to detect spatial patterns.
+        </p>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why CNNs exist</span>
+        <p>
+          A standard neural network treats each input independently. For an image with 1000 pixels,
+          that means 1000 independent inputs with no awareness that neighboring pixels are related.
+          CNNs exist because they exploit the <strong>spatial structure</strong> of images: nearby
+          pixels are more related than distant pixels, and the same pattern (e.g., an edge) can
+          appear anywhere in the image.
+        </p>
+      </div>
+
+      <h3>CNN Components</h3>
+
+      <div class="concept-box">
+        <span class="box-label">1. Convolutional Layer</span>
+        <p>
+          A small matrix called a <strong>filter</strong> (or kernel) slides across the image.
+          At each position, it computes a dot product with the image patch underneath, producing
+          one number. Sliding across the entire image produces a <strong>feature map</strong>.
+          Different filters detect different patterns (horizontal edges, vertical edges, colors, etc.).
+        </p>
+      </div>
+
+      <div class="concept-box">
+        <span class="box-label">2. Activation Function (ReLU)</span>
+        <p>
+          After convolution, apply the <strong>ReLU</strong> (Rectified Linear Unit) function:
+          \(f(x) = \max(0, x)\). This is simpler than sigmoid and works better in deep networks
+          because it does not suffer from the vanishing gradient problem (covered in Section 20).
+        </p>
+      </div>
+
+      <div class="concept-box">
+        <span class="box-label">3. Pooling Layer</span>
+        <p>
+          Reduces the spatial dimensions of the feature map. <strong>Max pooling</strong> takes the
+          maximum value in each small region. <strong>Average pooling</strong> takes the average.
+          This reduces computation and makes the network more robust to small shifts in the input.
+        </p>
+      </div>
+
+      <div class="concept-box">
+        <span class="box-label">4. Fully Connected Layer</span>
+        <p>
+          After several rounds of convolution and pooling, the resulting feature maps are flattened
+          into a 1-dimensional vector and fed into a standard neural network layer. This layer
+          combines all the detected features to make the final decision.
+        </p>
+      </div>
+
+      <div class="concept-box">
+        <span class="box-label">5. Output Layer (Softmax)</span>
+        <p>
+          For classification tasks, the final layer uses the <strong>softmax</strong> function,
+          which converts raw scores into probabilities that sum to 1. The class with the highest
+          probability is the prediction.
+        </p>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 20: RNN -->
+    <!-- ============================================================ -->
+    <div class="section" id="rnn">
+      <h2>20. Recurrent Neural Networks (RNN)</h2>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          A <strong>Recurrent Neural Network (RNN)</strong> is a neural network designed for
+          <strong>sequential data</strong> &mdash; data where order matters, such as time series,
+          text, or audio. It processes inputs one at a time and maintains a <strong>hidden
+          state</strong> that carries information from previous steps.
+        </p>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why RNNs exist</span>
+        <p>
+          Standard neural networks and CNNs assume each input is independent. But in sequences,
+          the meaning of the current element depends on what came before. The word "bank" means
+          different things after "river" vs. "investment." RNNs exist to capture these
+          sequential dependencies.
+        </p>
+      </div>
+
+      <h3>The Recurrence Relation</h3>
+
+      <p>
+        At each time step \(t\), the RNN updates its hidden state using both the current input
+        and the previous hidden state:
+      </p>
+
+      <div class="math-block">
+        \[
+        \mathbf{h}_t = \sigma\!\left(W_{hh} \cdot \mathbf{h}_{t-1} + W_{xh} \cdot \mathbf{x}_t + \boldsymbol{\Delta}_h\right)
+        \]
+      </div>
+
+      <p>where:</p>
+      <ul>
+        <li>\(\mathbf{h}_t\) is the hidden state at time \(t\).</li>
+        <li>\(\mathbf{x}_t\) is the input at time \(t\).</li>
+        <li>\(W_{hh}\) is the weight matrix applied to the previous hidden state.</li>
+        <li>\(W_{xh}\) is the weight matrix applied to the current input.</li>
+        <li>\(\boldsymbol{\Delta}_h\) is a bias vector.</li>
+        <li>\(\sigma\) is an activation function (typically sigmoid or tanh).</li>
+      </ul>
+
+      <div class="concept-box">
+        <span class="box-label">Weight Sharing</span>
+        <p>
+          The same weight matrices \(W_{hh}\) and \(W_{xh}\) are used at every time step.
+          This means the network learns a single set of rules that it applies repeatedly,
+          regardless of the sequence length. This dramatically reduces the number of parameters.
+        </p>
+      </div>
+
+      <h3>RNN Problems</h3>
+
+      <div class="important-box">
+        <span class="box-label">Vanishing and Exploding Gradients</span>
+        <p>
+          During backpropagation through time, gradients are multiplied by the weight matrix at each
+          step. Over many steps:
+        </p>
+        <ul>
+          <li>If the weights are less than 1 in magnitude, gradients shrink exponentially toward zero (<strong>vanishing gradients</strong>). The network cannot learn long-range dependencies.</li>
+          <li>If the weights are greater than 1 in magnitude, gradients grow exponentially (<strong>exploding gradients</strong>). Training becomes unstable.</li>
+        </ul>
+        <p>
+          The practical consequence: standard RNNs forget information from earlier parts of long
+          sequences. This is the problem that LSTM (Section 21) was designed to solve.
+        </p>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- SECTION 21: LSTM -->
+    <!-- ============================================================ -->
+    <div class="section" id="lstm">
+      <h2>21. Long Short-Term Memory (LSTM)</h2>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          <strong>LSTM</strong> (Long Short-Term Memory) is a specialized RNN architecture that
+          can learn long-range dependencies in sequential data. It replaces the simple hidden state
+          of a standard RNN with a more complex unit that includes a <strong>memory cell</strong>
+          and <strong>three gates</strong>.
+        </p>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why LSTM exists</span>
+        <p>
+          Standard RNNs fail on long sequences because of vanishing gradients. They cannot remember
+          information from many steps ago. LSTM solves this by providing a mechanism to
+          <strong>selectively</strong> remember important information and forget irrelevant
+          information, even over hundreds of time steps.
+        </p>
+      </div>
+
+      <h3>The Three Gates</h3>
+
+      <div class="concept-box">
+        <span class="box-label">1. Forget Gate</span>
+        <p>
+          Decides what information to <strong>discard</strong> from the memory cell. It looks at
+          the current input and previous hidden state, and outputs a number between 0 and 1 for
+          each element in the memory cell. A value of 0 means "completely forget this," and 1
+          means "completely keep this."
+        </p>
+      </div>
+
+      <div class="concept-box">
+        <span class="box-label">2. Write Gate (Input Gate)</span>
+        <p>
+          Decides what new information to <strong>store</strong> in the memory cell. It has two
+          parts: (a) a sigmoid layer that decides which values to update, and (b) a tanh layer
+          that creates candidate values. The memory cell is updated by combining old memory
+          (scaled by the forget gate) with new candidates (scaled by the write gate).
+        </p>
+      </div>
+
+      <div class="concept-box">
+        <span class="box-label">3. Read Gate (Output Gate)</span>
+        <p>
+          Decides what part of the memory cell to <strong>output</strong> as the hidden state.
+          It applies a sigmoid to decide which memory elements are relevant, then multiplies by
+          the tanh of the memory cell to produce the output.
+        </p>
+      </div>
+
+      <div class="important-box">
+        <span class="box-label">Why This Solves Vanishing Gradients</span>
+        <p>
+          The memory cell provides a direct path for gradients to flow backward through time
+          without being multiplied by weight matrices at every step. The forget gate can learn to
+          keep the gradient flowing by outputting values close to 1. This allows the network to
+          maintain useful information over long sequences without the gradient shrinking to zero.
+        </p>
+      </div>
+    </div>
+
+    <!-- CHAPTER NAVIGATION -->
+    <div class="chapter-nav">
+      <a href="chapter1.html" class="prev">
+        <span class="nav-label">Previous</span>
+        <span class="nav-title">Ch 1: Optimization for AI</span>
+      </a>
+      <a href="chapter3.html" class="next">
+        <span class="nav-label">Next</span>
+        <span class="nav-title">Ch 3: Reinforcement Learning &amp; Generative AI</span>
+      </a>
+    </div>
+
+    <div class="footer">
+      Math for AI &mdash; A plain-English course
+    </div>
+
+  </div>
+</div>
+
+<!-- Reading progress bar -->
+<script>
+  window.addEventListener('scroll', function() {
+    var scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+    var scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+    var progress = (scrollTop / scrollHeight) * 100;
+    document.getElementById('progressBar').style.width = progress + '%';
+  });
+</script>
+</body>
+</html>

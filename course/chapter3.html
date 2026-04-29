@@ -1,0 +1,1338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 3: Reinforcement Learning and Generative AI - Math for AI</title>
+  <link rel="stylesheet" href="style.css">
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['\\(','\\)']],
+        displayMath: [['\\[','\\]']],
+        processEscapes: true
+      }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+</head>
+<body>
+<div class="progress-bar" id="progressBar"></div>
+<div class="page-wrapper">
+
+  <nav class="top-nav">
+    <a href="index.html" class="nav-brand">Math for AI</a>
+    <a href="chapter1.html">Ch 1</a>
+    <a href="chapter2.html">Ch 2</a>
+    <a href="chapter3.html" class="active">Ch 3</a>
+  </nav>
+
+  <div class="content">
+
+    <!-- ===== CHAPTER HEADER ===== -->
+    <div class="chapter-header">
+      <span class="ch-label">Chapter 03</span>
+      <h1>Reinforcement Learning and Generative AI</h1>
+      <p class="ch-desc">
+        How AI learns from interaction instead of labeled data, and how it creates
+        entirely new content. From multi-armed bandits to GANs and diffusion models.
+      </p>
+    </div>
+
+    <!-- ===== TABLE OF CONTENTS ===== -->
+    <div class="toc">
+      <div class="toc-title">In this chapter</div>
+      <ol>
+        <li><a href="#intro">From Predictive AI to Generative AI</a></li>
+        <li><a href="#rl-definition">Reinforcement Learning &mdash; Formal Definition</a></li>
+        <li><a href="#rl-vs-others">RL vs Supervised vs Unsupervised Learning</a></li>
+        <li><a href="#formal-rl">Formal RL Framework: &lt;S, A, R&gt;</a></li>
+        <li><a href="#multi-armed-bandit">Multi-Armed Bandit Problem</a></li>
+        <li><a href="#bandit-strategies">Strategies for Multi-Armed Bandits</a></li>
+        <li><a href="#bandit-applications">Applications of Multi-Armed Bandits</a></li>
+        <li><a href="#model-based-free">Model-Based vs Model-Free RL</a></li>
+        <li><a href="#reinforce">REINFORCE Algorithm</a></li>
+        <li><a href="#q-learning">Q-Learning</a></li>
+        <li><a href="#dqn">Deep Q-Network (DQN)</a></li>
+        <li><a href="#sarsa">SARSA</a></li>
+        <li><a href="#gen-ai-context">Generative AI in the RL Context</a></li>
+        <li><a href="#pred-to-gen">From Predictive AI to Generative AI</a></li>
+        <li><a href="#training-nondeterministic">Training Non-Deterministic Models</a></li>
+        <li><a href="#generative-models">Two Basic Generative Models</a></li>
+        <li><a href="#gan">Generative Adversarial Networks (GANs)</a></li>
+        <li><a href="#diffusion">Diffusion Models</a></li>
+      </ol>
+    </div>
+
+    <!-- ===== SECTION 1: INTRODUCTION ===== -->
+    <div class="section" id="intro">
+      <h2>1. From Predictive AI to Generative AI</h2>
+
+      <p>
+        In Chapter 2 we studied machine learning models that learn a function \( y = f(x) \).
+        These models are <strong>deterministic transformations</strong>: given the same input
+        \( x \), they always produce the same output \( y \). If the model gets a particular
+        sample wrong, it will always get that sample wrong (until retrained).
+      </p>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          <strong>Predictive AI (Pred-AI)</strong> refers to deterministic models that map inputs
+          to outputs via a fixed function \( f \). This is also called <strong>traditional AI</strong>.
+          Given the same input, Pred-AI always produces the same output.
+        </p>
+      </div>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          <strong>Generative AI (Gen-AI)</strong> refers to models that can <em>create new content</em>.
+          Rather than just mapping input to a single fixed output, Gen-AI models can produce
+          different outputs for the same input, adding new knowledge beyond what was seen during training.
+        </p>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why This Matters</span>
+        <p>
+          Pred-AI can classify images or predict prices, but it cannot write a new poem or generate
+          a new image. Gen-AI breaks through this limitation. <strong>Reinforcement learning</strong>
+          is one of the key techniques that makes Gen-AI possible&mdash;it provides a way for models
+          to enhance their knowledge through interaction and feedback, rather than only from
+          pre-labeled data.
+        </p>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 2: RL FORMAL DEFINITION ===== -->
+    <div class="section" id="rl-definition">
+      <h2>2. Reinforcement Learning &mdash; Formal Definition</h2>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          <strong>Reinforcement Learning (RL)</strong> is a type of machine learning where an
+          <strong>agent</strong> learns to make decisions by interacting with an
+          <strong>environment</strong>. The agent takes actions, receives feedback (rewards or
+          penalties), and develops a strategy to maximize its total reward over time.
+        </p>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why RL Exists</span>
+        <p>
+          Many real-world problems cannot be solved by labeled datasets. A robot learning to walk,
+          a program learning to play chess, or an algorithm optimizing ad placement&mdash;these
+          problems require an agent to <em>try things</em>, observe results, and improve.
+          RL provides the mathematical framework for this trial-and-error learning process.
+        </p>
+      </div>
+
+      <h3>The RL Ecosystem</h3>
+
+      <p>Every RL problem has these components:</p>
+
+      <div class="concept-box">
+        <span class="box-label">RL Components</span>
+        <ul>
+          <li><strong>Agent \( A \)</strong> &mdash; the learner/decision-maker.</li>
+          <li><strong>Environment \( E \)</strong> &mdash; everything the agent interacts with.</li>
+          <li><strong>States \( S = \{s_t = S(t)\} \)</strong> &mdash; the agent perceives the
+              environment through states. At each time step \( t \), the environment is in some
+              state \( s_t \).</li>
+          <li><strong>Actions \( a \in \mathcal{A} \)</strong> &mdash; the agent interacts with the
+              environment by choosing actions from a set of possible actions.</li>
+          <li><strong>Reward \( R \)</strong> &mdash; after each action, the environment responds
+              with a reward signal:
+            <ul>
+              <li>\( r > 0 \) means <strong>reward</strong> (the action was good).</li>
+              <li>\( r \leq 0 \) means <strong>regret</strong> (the action was bad).</li>
+            </ul>
+          </li>
+        </ul>
+        <p>
+          The agent's goal is to learn a <strong>strategy</strong> (called a <strong>policy</strong>)
+          that chooses the best action for each state, maximizing the total reward over time.
+        </p>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 3: RL vs SUPERVISED vs UNSUPERVISED ===== -->
+    <div class="section" id="rl-vs-others">
+      <h2>3. RL vs Supervised vs Unsupervised Learning</h2>
+
+      <p>
+        Machine learning has three main paradigms. Understanding how they differ clarifies
+        when to use each one.
+      </p>
+
+      <div class="concept-box">
+        <span class="box-label">Supervised Learning</span>
+        <p>
+          <strong>What it is:</strong> The model learns from labeled data&mdash;pairs of
+          (input, correct output). It learns to map inputs to outputs by minimizing the
+          difference between its predictions and the correct labels.
+        </p>
+        <p>
+          <strong>Used for:</strong> classification (is this email spam?), regression (what
+          will the stock price be?).
+        </p>
+        <p>
+          <strong>Requires:</strong> a labeled dataset prepared in advance.
+        </p>
+      </div>
+
+      <div class="concept-box">
+        <span class="box-label">Unsupervised Learning</span>
+        <p>
+          <strong>What it is:</strong> The model finds hidden patterns in data that has no labels.
+          It discovers structure on its own&mdash;grouping similar items together or learning
+          compressed representations.
+        </p>
+        <p>
+          <strong>Used for:</strong> clustering (group customers by behavior), auto-encoding
+          (compress data into a compact representation).
+        </p>
+        <p>
+          <strong>Requires:</strong> data, but no labels.
+        </p>
+      </div>
+
+      <div class="concept-box">
+        <span class="box-label">Reinforcement Learning</span>
+        <p>
+          <strong>What it is:</strong> The agent learns by interacting with an environment.
+          It takes actions, receives rewards, and develops a strategy over time. There is no
+          labeled dataset&mdash;the agent generates its own experience.
+        </p>
+        <p>
+          <strong>Used for:</strong> game playing, robotics, resource allocation, any problem
+          where a sequence of decisions must be optimized.
+        </p>
+        <p>
+          <strong>Key difference:</strong> RL optimizes a <em>long-term strategy</em>, not just
+          a single prediction. The reward for an action may not be immediately apparent&mdash;a
+          chess move might only prove good or bad many moves later.
+        </p>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 4: FORMAL RL FRAMEWORK ===== -->
+    <div class="section" id="formal-rl">
+      <h2>4. Formal RL Framework: \(\langle S, A, R \rangle\)</h2>
+
+      <p>
+        Formally, a reinforcement learning problem is defined as the triple
+        \(\langle S, A, R \rangle\) over a timeline \( T \):
+      </p>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <ul>
+          <li>
+            <strong>State function \( S: T \to \mathcal{S} \)</strong> &mdash; maps each time step
+            to a state. At time \( t \), the environment is in state \( s_t = S(t) \).
+          </li>
+          <li>
+            <strong>Action function \( A: \mathcal{S} \to \mathcal{A} \)</strong> &mdash; maps
+            each state to an action. This is the agent's <strong>policy</strong>&mdash;a
+            deterministic function that says "in state \( s \), take action \( a \)."
+          </li>
+          <li>
+            <strong>Reward function \( R: \mathcal{S} \times \mathcal{A} \times \mathcal{S} \to \mathbb{R} \)</strong>
+            &mdash; given a state \( s \), an action \( a \), and the resulting new state
+            \( s' \), returns a numerical reward \( r \). This function encodes what is "good"
+            and "bad" in the environment.
+          </li>
+        </ul>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why This Formalization Exists</span>
+        <p>
+          This triple provides a complete mathematical specification of any RL problem. Once you
+          define \( S \), \( A \), and \( R \), you can apply any RL algorithm to find the
+          optimal policy. The formalization separates the problem definition from the solution
+          method.
+        </p>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 5: MULTI-ARMED BANDIT ===== -->
+    <div class="section" id="multi-armed-bandit">
+      <h2>5. The Multi-Armed Bandit Problem</h2>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          The <strong>multi-armed bandit</strong> problem is one of the simplest RL problems.
+          It captures the fundamental tension in RL: <strong>exploration vs exploitation</strong>.
+          Should the agent try something new (explore) or stick with what has worked so far (exploit)?
+        </p>
+      </div>
+
+      <h3>Setup</h3>
+
+      <p>
+        There are \( M \) slot machines, each with an <em>unknown</em> payout probability.
+        A player has \( N \) coins. On each turn, the player inserts 1 coin into 1 machine:
+      </p>
+      <ul>
+        <li>If the machine pays out, the player receives up to \( K \) coins (drawn from that machine's payout distribution).</li>
+        <li>If the machine does not pay out, the player loses the coin.</li>
+      </ul>
+      <p>The goal: maximize total winnings over all \( N \) plays.</p>
+
+      <h3>RL Formulation</h3>
+
+      <div class="concept-box">
+        <span class="box-label">Bandit as RL</span>
+        <p>We can express this problem in the RL framework:</p>
+        <ul>
+          <li><strong>Environment \( E \):</strong> the \( M \) machines.</li>
+          <li><strong>Agent \( A \):</strong> the player with \( N \) coins.</li>
+          <li><strong>State \( S(t) = [m_1, \ldots, m_M] \):</strong> where \( m_i = 1 \) if
+              machine \( i \) is randomly "hot" (ready to pay out) at time \( t \), and
+              \( m_i = 0 \) otherwise. The agent does <em>not</em> observe the state directly.</li>
+          <li><strong>Action \( A(S(t)) \):</strong> put a coin in machine \( a_t \).</li>
+          <li><strong>Reward:</strong>
+            \[
+              R(S(t), A(S(t))) = \begin{cases}
+                -1 & \text{if machine } a_t \text{ is not hot} \\
+                \text{random payout from machine's distribution} & \text{otherwise}
+              \end{cases}
+            \]
+          </li>
+        </ul>
+        <p>The objective is:</p>
+        <div class="math-block">
+          \[
+            \max \sum_{t=1}^{N} R(S(t), A(t))
+          \]
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 6: BANDIT STRATEGIES ===== -->
+    <div class="section" id="bandit-strategies">
+      <h2>6. Strategies for Multi-Armed Bandits</h2>
+
+      <p>
+        The core challenge: you don't know which machine is best. You must balance
+        <strong>exploration</strong> (trying machines to learn about them) with
+        <strong>exploitation</strong> (using the best machine you've found so far).
+      </p>
+
+      <div class="concept-box">
+        <span class="box-label">Basic Idea</span>
+        <p>
+          Spend the first \( n < N \) turns <strong>exploring</strong>&mdash;trying each machine
+          to estimate how good it is. Then <strong>exploit</strong> the best machine for the
+          remaining \( N - n \) turns. The strategies below are more sophisticated versions
+          of this idea.
+        </p>
+      </div>
+
+      <!-- Epsilon-greedy -->
+      <h3>6.1 Greedy Strategy (\(\varepsilon\)-greedy)</h3>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          The <strong>\(\varepsilon\)-greedy</strong> strategy works as follows on each turn:
+        </p>
+        <ul>
+          <li>With probability \( 1 - \varepsilon \): choose the machine with the highest
+              average reward observed so far (<strong>exploit</strong>).</li>
+          <li>With probability \( \varepsilon \): choose a machine at random (<strong>explore</strong>).</li>
+        </ul>
+        <p>
+          The parameter \( \varepsilon \in [0, 1] \) controls the exploration-exploitation
+          balance. A small \( \varepsilon \) means mostly exploit; a large \( \varepsilon \)
+          means mostly explore.
+        </p>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why It Works</span>
+        <p>
+          Pure exploitation (always pick the current best) can get stuck on a suboptimal
+          machine if early observations were misleading. The random exploration with probability
+          \( \varepsilon \) ensures the agent keeps gathering information about all machines,
+          preventing it from locking in on a bad choice.
+        </p>
+      </div>
+
+      <!-- UCB -->
+      <h3>6.2 Upper Confidence Bound (UCB)</h3>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          Instead of exploring randomly, UCB explores <em>intelligently</em>. On each turn,
+          choose the machine that maximizes:
+        </p>
+        <div class="math-block">
+          \[
+            Q(t, a) + c \cdot \sqrt{\frac{\ln t}{N_t(a)}}
+          \]
+        </div>
+        <p>where:</p>
+        <ul>
+          <li>\( Q(t, a) \) = average reward from machine \( a \) so far.</li>
+          <li>\( N_t(a) \) = number of times machine \( a \) has been played.</li>
+          <li>\( c \) = a constant controlling the exploration bonus.</li>
+          <li>\( t \) = current time step.</li>
+        </ul>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why UCB Works</span>
+        <p>
+          The second term \( c \cdot \sqrt{\ln t / N_t(a)} \) is a <strong>bonus for
+          uncertainty</strong>. If machine \( a \) has been played many times, \( N_t(a) \)
+          is large, the bonus is small&mdash;we already know a lot about it. If machine \( a \)
+          has rarely been played, the bonus is large&mdash;we should explore it because we're
+          uncertain about its true value. As time goes on and all machines get tried, the bonus
+          naturally shrinks, and the algorithm transitions from exploration to exploitation
+          automatically.
+        </p>
+      </div>
+
+      <!-- Thompson Sampling -->
+      <h3>6.3 Bayesian Strategy (Thompson Sampling)</h3>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          <strong>Thompson Sampling</strong> uses Bayesian statistics. For each machine, the
+          agent maintains a <strong>probability distribution</strong> over the machine's true
+          payout rate. On each turn:
+        </p>
+        <ol>
+          <li>Sample a value from each machine's probability distribution.</li>
+          <li>Play the machine whose sampled value is highest.</li>
+          <li>Observe the result and update the probability distribution for that machine.</li>
+        </ol>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why It Works</span>
+        <p>
+          When the agent has little data about a machine, its probability distribution is wide
+          (high uncertainty), so the sampled values vary a lot&mdash;this naturally leads to
+          exploration. When the agent has a lot of data, the distribution is narrow (low
+          uncertainty), so the sampled values are close to the true mean&mdash;this naturally
+          leads to exploitation. Thompson Sampling automatically balances exploration and
+          exploitation through the width of probability distributions.
+        </p>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 7: APPLICATIONS ===== -->
+    <div class="section" id="bandit-applications">
+      <h2>7. Applications of Multi-Armed Bandits</h2>
+
+      <div class="concept-box">
+        <span class="box-label">Real-World Uses</span>
+        <ul>
+          <li>
+            <strong>Content recommendation:</strong> A website has multiple articles/videos to
+            show users. Each piece of content is a "machine." The reward is whether the user
+            clicks or engages. The bandit algorithm learns which content to recommend.
+          </li>
+          <li>
+            <strong>A/B testing:</strong> Testing multiple variations of a webpage, drug treatment,
+            or marketing campaign. Instead of running a fixed experiment, a bandit algorithm
+            dynamically allocates more traffic to better-performing variants.
+          </li>
+          <li>
+            <strong>Real-time bidding:</strong> In online advertising auctions, the bid amount
+            is the action, and the reward is the return on ad spend. The bandit learns the
+            optimal bid strategy.
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 8: MODEL-BASED vs MODEL-FREE ===== -->
+    <div class="section" id="model-based-free">
+      <h2>8. RL Algorithms: Model-Based vs Model-Free</h2>
+
+      <p>
+        RL algorithms fall into two categories based on whether the agent tries to understand
+        <em>how the environment works</em>.
+      </p>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          <strong>Model-based RL:</strong> The agent builds an <strong>internal model</strong>
+          of the environment by observing state transitions and rewards. It then uses this model
+          to <em>plan</em> ahead&mdash;simulating future scenarios to choose the best action.
+        </p>
+        <p>
+          <strong>When to use:</strong> When the environment is well-defined and does not change
+          over time. The agent can invest effort in building an accurate model and then exploit
+          it efficiently.
+        </p>
+      </div>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          <strong>Model-free RL:</strong> The agent does <strong>not</strong> build a model of the
+          environment. Instead, it directly learns which actions lead to good outcomes through
+          trial-and-error, storing only the learned values or policy.
+        </p>
+        <p>
+          <strong>When to use:</strong> When the environment is unknown, complex, or changes over
+          time. Building an accurate model would be too difficult or unreliable.
+        </p>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why This Distinction Matters</span>
+        <p>
+          Model-based methods are more sample-efficient (they learn faster from less data) because
+          they can plan using their model. Model-free methods are more flexible and work in
+          environments that are too complex to model. Most modern RL algorithms (Q-learning,
+          REINFORCE, etc.) are model-free.
+        </p>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 9: REINFORCE ===== -->
+    <div class="section" id="reinforce">
+      <h2>9. The REINFORCE Algorithm</h2>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          <strong>REINFORCE</strong> is a <strong>policy gradient</strong> method. Instead of
+          learning the value of each state-action pair (like Q-learning), it directly learns a
+          <strong>policy</strong> \( \pi_\theta(a|s) \)&mdash;a function parameterized by
+          \( \theta \) that outputs the probability of taking action \( a \) in state \( s \).
+        </p>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why Policy Gradients Exist</span>
+        <p>
+          Some RL problems have continuous action spaces (e.g., how much to turn a steering wheel),
+          making it impractical to store a value for every possible action. Policy gradient methods
+          handle this by learning a parameterized function that directly outputs actions or action
+          probabilities. REINFORCE is the simplest such method.
+        </p>
+      </div>
+
+      <h3>Key Concepts</h3>
+
+      <div class="concept-box">
+        <span class="box-label">Trajectory</span>
+        <p>
+          A <strong>trajectory</strong> \( \tau \) is a complete sequence of states and actions:
+        </p>
+        <div class="math-block">
+          \[
+            \tau = s_0, a_0, s_1, a_1, \ldots, s_T
+          \]
+        </div>
+        <p>It records one full episode of the agent interacting with the environment.</p>
+      </div>
+
+      <div class="concept-box">
+        <span class="box-label">Expected Reward</span>
+        <p>
+          The expected total reward under policy parameters \( \theta \) is:
+        </p>
+        <div class="math-block">
+          \[
+            \eta(\theta) = \mathbb{E}\left[\sum_{t=0}^{T} \gamma^t \cdot R(s_t, a_t)\right]
+          \]
+        </div>
+        <p>
+          where \( \gamma \in [0, 1] \) is the <strong>discount factor</strong>. It controls
+          how much the agent cares about future rewards vs immediate rewards. \( \gamma = 0 \)
+          means only care about immediate reward; \( \gamma \) close to 1 means value future
+          rewards almost as much as immediate ones.
+        </p>
+        <p>The goal is to find:</p>
+        <div class="math-block">
+          \[
+            \theta^* = \arg\max_\theta \;\eta(\theta)
+          \]
+        </div>
+      </div>
+
+      <h3>The Policy Gradient Derivation</h3>
+
+      <p>
+        To maximize \( \eta(\theta) \), we need its gradient with respect to \( \theta \).
+        The key mathematical insight is:
+      </p>
+
+      <div class="important-box">
+        <span class="box-label">Key Identity</span>
+        <div class="math-block">
+          \[
+            \nabla_\theta \;\mathbb{E}[f(\tau)] = \mathbb{E}\left[
+              \left(\nabla_\theta \log P_\theta(\tau)\right) \cdot f(\tau)
+            \right]
+          \]
+        </div>
+        <p>
+          This identity is crucial because it lets us estimate the gradient by <em>sampling
+          trajectories</em> from the environment. We don't need to know the environment's
+          transition dynamics.
+        </p>
+      </div>
+
+      <p>
+        The log probability of a trajectory can be expanded as:
+      </p>
+
+      <div class="math-block">
+        \[
+          \log P_\theta(\tau) = \log \mu(s_0) + \sum_{t=0}^{T-1} \log \pi_\theta(a_t | s_t)
+          + \sum_{t=0}^{T-1} \log P(s_{t+1} | s_t, a_t)
+        \]
+      </div>
+
+      <p>
+        where \( \mu(s_0) \) is the initial state distribution and
+        \( P(s_{t+1}|s_t,a_t) \) is the environment's transition probability.
+      </p>
+
+      <div class="important-box">
+        <span class="box-label">Critical Simplification</span>
+        <p>
+          Only the \( \pi_\theta(a_t|s_t) \) terms depend on \( \theta \). The initial state
+          distribution and the environment transitions do not depend on \( \theta \). Therefore:
+        </p>
+        <div class="math-block">
+          \[
+            \nabla_\theta \log P_\theta(\tau)
+              = \sum_{t=0}^{T-1} \nabla_\theta \log \pi_\theta(a_t | s_t)
+          \]
+        </div>
+        <p>
+          This is why REINFORCE is <strong>model-free</strong>&mdash;the environment dynamics
+          drop out of the gradient computation entirely.
+        </p>
+      </div>
+
+      <p>Putting it all together, the policy gradient is:</p>
+
+      <div class="math-block">
+        \[
+          \nabla_\theta \;\eta(\theta) = \mathbb{E}\left[
+            \left(\sum_{t=0}^{T-1} \nabla_\theta \log \pi_\theta(a_t | s_t)\right)
+            \cdot
+            \left(\sum_{t=0}^{T} \gamma^t R(s_t, a_t)\right)
+          \right]
+        \]
+      </div>
+
+      <h3>Vanilla Policy Gradient Algorithm</h3>
+
+      <div class="step-box">
+        <span class="box-label">Algorithm Steps</span>
+        <p>For each iteration:</p>
+        <ol>
+          <li>
+            <strong>Collect trajectories:</strong> Execute the current policy \( \pi_\theta \)
+            in the environment to generate trajectories \( \tau_1, \tau_2, \ldots \).
+          </li>
+          <li>
+            <strong>Fit a baseline \( B \):</strong> A baseline reduces variance in the gradient
+            estimate. Fit \( B(s_t) \) by minimizing:
+            <div class="math-block">
+              \[
+                \sum_t \left(R_{\geq t} - B(s_t)\right)^2
+              \]
+            </div>
+            where \( R_{\geq t} \) is the total reward from time \( t \) onward.
+          </li>
+          <li>
+            <strong>Update \( \theta \):</strong> Use the gradient:
+            <div class="math-block">
+              \[
+                \sum_t \nabla_\theta \log \pi_\theta(a_t | s_t)
+                \cdot \left(R_{\geq t} - B(s_t)\right)
+              \]
+            </div>
+          </li>
+        </ol>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why Subtract a Baseline</span>
+        <p>
+          The baseline \( B(s_t) \) does not change the expected gradient (it is unbiased),
+          but it reduces variance. Without a baseline, all actions in good trajectories get
+          reinforced equally, even mediocre actions. Subtracting the baseline means only
+          actions that performed <em>better than average</em> get reinforced.
+        </p>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 10: Q-LEARNING ===== -->
+    <div class="section" id="q-learning">
+      <h2>10. Q-Learning</h2>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          <strong>Q-learning</strong> is a model-free RL algorithm that learns
+          <strong>Q-values</strong>: the expected total reward for taking action \( a \) in
+          state \( s \), then following the optimal policy afterward.
+        </p>
+        <div class="math-block">
+          \[
+            Q(s, a) = \text{expected total reward for taking action } a \text{ in state } s
+          \]
+        </div>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why Q-values Exist</span>
+        <p>
+          If we knew the Q-value of every state-action pair, the optimal policy would be trivial:
+          in each state, just pick the action with the highest Q-value. Q-learning provides a
+          way to <em>learn</em> these values through experience.
+        </p>
+      </div>
+
+      <h3>The Update Rule (Bellman Equation)</h3>
+
+      <p>After taking action \( a \) in state \( s \), observing reward \( r \), and arriving
+         in new state \( s' \), update:</p>
+
+      <div class="math-block">
+        \[
+          Q(s, a) \leftarrow Q(s, a) + \alpha \left[
+            r + \gamma \cdot \max_{a'} Q(s', a') - Q(s, a)
+          \right]
+        \]
+      </div>
+
+      <div class="concept-box">
+        <span class="box-label">Parameters</span>
+        <ul>
+          <li>\( \alpha \) = <strong>learning rate</strong>. Controls how much the Q-value
+              changes with each update. Small \( \alpha \) = slow, stable learning.
+              Large \( \alpha \) = fast, potentially unstable learning.</li>
+          <li>\( \gamma \) = <strong>discount factor</strong>. Balances immediate vs future
+              rewards. \( \gamma = 0 \) means only immediate rewards matter.
+              \( \gamma \) close to 1 means future rewards are nearly as important.</li>
+        </ul>
+      </div>
+
+      <h3>Action Selection</h3>
+
+      <p>
+        Q-learning can use the same UCB-style exploration as multi-armed bandits:
+      </p>
+
+      <div class="math-block">
+        \[
+          a^* = \arg\max_a \left[ Q(t, a) + c \cdot \sqrt{\frac{\ln t}{N_t(a)}} \right]
+        \]
+      </div>
+
+      <p>
+        The first term exploits current knowledge; the second term encourages exploring
+        actions that have been tried less often.
+      </p>
+
+      <h3>Q-Learning Algorithm</h3>
+
+      <div class="step-box">
+        <span class="box-label">Algorithm Steps</span>
+        <ol>
+          <li><strong>Define the environment:</strong>
+              \( E = \langle \mathcal{S}, \mathcal{A}, a_{\text{goal}}, Q_{\text{table}} \rangle \).
+              The Q-table stores \( Q(s, a) \) for every state-action pair, initialized to zero.
+          </li>
+          <li><strong>Set parameters:</strong> discount factor \( \gamma \), learning rate
+              \( \alpha \), exploration parameter \( \varepsilon \).</li>
+          <li><strong>Define state transitions:</strong> specify how the environment responds
+              to actions (what new state results from each action).</li>
+          <li><strong>Iterate:</strong> Repeat many episodes&mdash;in each step, choose an
+              action, observe the reward and new state, and update the Q-table using the
+              Bellman equation above.</li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 11: DQN ===== -->
+    <div class="section" id="dqn">
+      <h2>11. Deep Q-Network (DQN)</h2>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          A <strong>Deep Q-Network</strong> replaces the Q-table with a <strong>neural
+          network</strong> that estimates Q-values. The network takes a state as input and
+          outputs Q-values for all possible actions.
+        </p>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why DQN Exists</span>
+        <p>
+          When the state space is very large (e.g., the pixels of a video game screen), a
+          Q-table is impractical&mdash;it would need one entry for every possible state-action
+          pair, which could be billions or more. A neural network can <em>generalize</em>
+          across similar states, estimating Q-values for states it has never seen before.
+          DQN made it possible for RL to solve problems with high-dimensional input like
+          Atari games.
+        </p>
+      </div>
+
+      <div class="concept-box">
+        <span class="box-label">How DQN Works</span>
+        <p>
+          The neural network \( Q(s, a; \theta) \) is trained to minimize the same Bellman
+          error as tabular Q-learning:
+        </p>
+        <div class="math-block">
+          \[
+            L(\theta) = \mathbb{E}\left[\left(
+              r + \gamma \max_{a'} Q(s', a'; \theta^-) - Q(s, a; \theta)
+            \right)^2\right]
+          \]
+        </div>
+        <p>
+          where \( \theta^- \) is a periodically-updated copy of the network parameters
+          (called the <strong>target network</strong>), which stabilizes training.
+        </p>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 12: SARSA ===== -->
+    <div class="section" id="sarsa">
+      <h2>12. SARSA (State-Action-Reward-State-Action)</h2>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          <strong>SARSA</strong> is a model-free RL algorithm similar to Q-learning. The name
+          comes from the tuple it uses for each update: \( (s, a, r, s', a') \)&mdash;the
+          current state, the action taken, the reward received, the next state, and the
+          next action actually taken.
+        </p>
+      </div>
+
+      <div class="concept-box">
+        <span class="box-label">SARSA Update Rule</span>
+        <div class="math-block">
+          \[
+            Q(s, a) \leftarrow Q(s, a) + \alpha \left[
+              r + \gamma \cdot Q(s', a') - Q(s, a)
+            \right]
+          \]
+        </div>
+      </div>
+
+      <div class="important-box">
+        <span class="box-label">Key Difference from Q-Learning</span>
+        <p>
+          <strong>Q-learning</strong> uses \( \max_{a'} Q(s', a') \)&mdash;the value of the
+          <em>best possible</em> action in the next state (regardless of what action the agent
+          actually takes). This is called <strong>off-policy</strong> learning.
+        </p>
+        <p>
+          <strong>SARSA</strong> uses \( Q(s', a') \)&mdash;the value of the action the agent
+          <em>actually takes</em> in the next state. This is called <strong>on-policy</strong>
+          learning.
+        </p>
+        <p>
+          SARSA tends to be more conservative because it accounts for the agent's actual
+          behavior (including exploration), while Q-learning is more optimistic because it
+          assumes optimal future actions.
+        </p>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 13: GEN-AI IN RL CONTEXT ===== -->
+    <div class="section" id="gen-ai-context">
+      <h2>13. Generative AI in the RL Context</h2>
+
+      <p>Now we connect RL to generative AI&mdash;the technology behind models that create text,
+         images, and other content.</p>
+
+      <div class="concept-box">
+        <span class="box-label">Pred-AI vs Gen-AI</span>
+        <ul>
+          <li><strong>Predictive AI (Pred-AI):</strong> Deterministic. The function \( f(x) \)
+              always gives the same output for the same input. Given a photo of a cat,
+              a Pred-AI classifier always outputs "cat."</li>
+          <li><strong>Generative AI (Gen-AI):</strong> Non-deterministic. The model can generate
+              <em>different</em> outputs for the same input. Given the prompt "draw a cat,"
+              a Gen-AI model can produce many different cat images.</li>
+        </ul>
+        <p>
+          The key capability of Gen-AI is that it can <strong>create new content</strong>
+          based on learned patterns&mdash;content that was never in the training data.
+        </p>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 14: PRED-AI TO GEN-AI ===== -->
+    <div class="section" id="pred-to-gen">
+      <h2>14. From Predictive AI to Generative AI</h2>
+
+      <div class="concept-box">
+        <span class="box-label">The Problem</span>
+        <p>
+          Pred-AI uses a deterministic function \( y = f(x) \). To create Gen-AI, we need a
+          <strong>stochastic (random) transformation</strong>&mdash;one that can produce
+          different outputs for the same input.
+        </p>
+      </div>
+
+      <h3>The Solution: Add Randomness</h3>
+
+      <p>
+        Attach a random variable \( z \) to the input \( x \), where \( z \) is sampled from
+        some distribution (typically a Gaussian). Since \( z \) is different each time, the
+        output will be different each time.
+      </p>
+
+      <div class="important-box">
+        <span class="box-label">The Reparameterization Trick</span>
+        <p>
+          The challenge: if the output involves random sampling, how do we compute gradients
+          for training? Sampling is not differentiable.
+        </p>
+        <p>The solution is the <strong>reparameterization trick</strong>:</p>
+        <div class="math-block">
+          \[
+            y = \mu + \sigma \cdot z, \qquad z \sim \mathcal{N}(0, 1)
+          \]
+        </div>
+        <p>
+          Instead of sampling \( y \) from \( \mathcal{N}(\mu, \sigma^2) \) directly, we
+          sample \( z \) from the standard normal distribution and compute \( y \) as
+          a deterministic function of \( \mu \), \( \sigma \), and \( z \).
+        </p>
+        <p>
+          Now \( \mu \) and \( \sigma \) are learnable parameters, and we can compute
+          gradients with respect to them because the randomness is isolated in \( z \),
+          which does not depend on the parameters.
+        </p>
+      </div>
+
+      <div class="concept-box">
+        <span class="box-label">Gen-AI Output</span>
+        <p>
+          The output of a Gen-AI model \( f_\theta \) is not a single value but a
+          <strong>probability distribution</strong>. For input \( x \), the output \( y \)
+          has probability \( p(y|x; \theta) \). We denote the output distribution as:
+        </p>
+        <div class="math-block">
+          \[
+            \omega \cong \omega(\theta, x)
+          \]
+        </div>
+        <p>
+          Each time we sample from this distribution, we may get a different \( y \).
+        </p>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 15: TRAINING NON-DETERMINISTIC MODELS ===== -->
+    <div class="section" id="training-nondeterministic">
+      <h2>15. Training Non-Deterministic Models</h2>
+
+      <div class="important-box">
+        <span class="box-label">Dual Training Objective</span>
+        <p>
+          Gen-AI training has <strong>two objectives</strong> that work together:
+        </p>
+        <ol>
+          <li>
+            <strong>Minimize prediction error</strong> (same as Pred-AI):
+            <div class="math-block">
+              \[
+                \theta^* = \arg\min_\theta L(\theta)
+              \]
+            </div>
+            This ensures the model's outputs are realistic and accurate.
+          </li>
+          <li>
+            <strong>Maximize expected reward via RL:</strong>
+            <div class="math-block">
+              \[
+                \max \;\mathbb{E}\left[\sum_t \gamma^t R(s_t, a_t)\right]
+              \]
+            </div>
+            This ensures the model improves through feedback, generating content that
+            scores well according to some reward signal.
+          </li>
+        </ol>
+        <p>
+          The first objective grounds the model in reality; the second objective pushes it
+          to create better and more useful content.
+        </p>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 16: TWO BASIC GENERATIVE MODELS ===== -->
+    <div class="section" id="generative-models">
+      <h2>16. Two Basic Generative Models</h2>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          <strong>Discriminative model:</strong> Computes the <strong>conditional probability</strong>
+          \( p(y|x) \)&mdash;the probability of label \( y \) given input \( x \). This is
+          Pred-AI. Given an image, it outputs "cat" or "dog" with certain probabilities. It can
+          only classify; it cannot generate new images.
+        </p>
+      </div>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          <strong>Generative model:</strong> Computes the <strong>joint probability</strong>
+          \( p(x, y) \)&mdash;the probability of both the data \( x \) and the label \( y \)
+          occurring together. Because it models the full data distribution, it can generate
+          new \( x \) that looks like real data.
+        </p>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why This Distinction Matters</span>
+        <p>
+          A discriminative model learns the boundary between classes. A generative model learns
+          <em>what the data itself looks like</em>. Only the generative approach enables
+          creating new data, because it understands the underlying distribution of the data,
+          not just how to separate categories.
+        </p>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 17: GAN ===== -->
+    <div class="section" id="gan">
+      <h2>17. Generative Adversarial Networks (GANs)</h2>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          A <strong>Generative Adversarial Network (GAN)</strong> consists of two neural networks
+          trained together in opposition:
+        </p>
+        <ul>
+          <li><strong>Generator \( G \):</strong> Takes random input \( z \) and creates fake
+              data. Its goal is to produce data that is indistinguishable from real data.</li>
+          <li><strong>Discriminator \( D \):</strong> Takes data (either real or fake) and
+              classifies it as "real" or "fake." Its goal is to correctly identify fake data.</li>
+        </ul>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why GANs Exist</span>
+        <p>
+          Training a generator alone is difficult&mdash;how do you define "good output"?
+          GANs solve this by making the discriminator act as an automatic quality judge. The
+          generator is trained to fool the discriminator, and the discriminator is trained to
+          not be fooled. This adversarial process drives both networks to improve, and the
+          generator eventually produces highly realistic data.
+        </p>
+      </div>
+
+      <h3>GAN as Reinforcement Learning</h3>
+
+      <div class="concept-box">
+        <span class="box-label">RL Formulation of GAN</span>
+        <p>
+          The Generator can be viewed as an RL agent:
+        </p>
+        <ul>
+          <li><strong>Agent:</strong> the Generator \( G \).</li>
+          <li><strong>State:</strong> the random input \( z \).</li>
+          <li><strong>Action:</strong> the generated data \( x \| z \) (output conditioned on \( z \)).</li>
+          <li><strong>Reward:</strong> the Discriminator's judgment&mdash;how "real" \( D \) thinks
+              the generated data is.</li>
+        </ul>
+        <p>
+          The Generator uses reinforcement learning (specifically, the REINFORCE algorithm) to
+          learn to produce data that the Discriminator classifies as real.
+        </p>
+      </div>
+
+      <h3>Training the Discriminator</h3>
+
+      <div class="step-box">
+        <span class="box-label">Discriminator Training Steps</span>
+        <p>
+          <strong>Freeze the Generator</strong> (its weights do not change). Then:
+        </p>
+        <ol>
+          <li>
+            Create a training set:
+            \( \Omega = \Omega^+ \cup \Omega^- \), where
+            \( \Omega^+ \) = real data (labeled 1) and
+            \( \Omega^- \) = fake data from \( G \) (labeled 0).
+          </li>
+          <li>Feed data through the Discriminator. Classify each sample as real or fake.</li>
+          <li>Compute the loss gradient (how wrong the Discriminator was).</li>
+          <li>Update the Discriminator's weights to improve its classification accuracy.</li>
+        </ol>
+        <p>
+          The Discriminator is a standard supervised learning classifier (Pred-AI). There is
+          nothing unusual about its training.
+        </p>
+      </div>
+
+      <h3>Training the Generator</h3>
+
+      <div class="step-box">
+        <span class="box-label">Generator Training Steps</span>
+        <p>
+          <strong>Freeze the Discriminator</strong> (its weights do not change). Then:
+        </p>
+        <ol>
+          <li>
+            Sample random input: \( s = z \sim P_\theta(z) \).
+          </li>
+          <li>
+            Generate data and get the Discriminator's judgment:
+            action = \( D(x \| z) \).
+          </li>
+          <li>
+            Compute the reward \( R(x \| z, y) \) based on how "real" the Discriminator
+            thinks the generated data is.
+          </li>
+          <li>
+            Update the Generator's weights using the REINFORCE algorithm to increase the
+            probability of actions (generated data) that received high rewards (fooled the
+            Discriminator).
+          </li>
+        </ol>
+      </div>
+
+      <h3>The Full GAN Training Algorithm</h3>
+
+      <div class="step-box">
+        <span class="box-label">GAN Algorithm</span>
+        <p>Repeat until convergence:</p>
+        <ol>
+          <li><strong>Step 1:</strong> Freeze \( G \). Train \( D \) for several epochs on a
+              mix of real data and fake data from \( G \).</li>
+          <li><strong>Step 2:</strong> Freeze \( D \). Train \( G \) for several epochs using
+              REINFORCE, with \( D \)'s judgment as the reward.</li>
+        </ol>
+        <p>
+          <strong>Convergence criterion:</strong> Training is complete when the Discriminator's
+          accuracy drops to approximately <strong>50%</strong>&mdash;meaning it can no longer
+          distinguish real data from fake data. At this point, the Generator has learned to
+          produce data that is indistinguishable from real data.
+        </p>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 18: DIFFUSION ===== -->
+    <div class="section" id="diffusion">
+      <h2>18. Diffusion Models</h2>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>
+          A <strong>diffusion model</strong> is a generative model that works in two phases:
+          first, it gradually adds noise to real data until it becomes pure random noise;
+          then, it learns to <em>reverse</em> this process, starting from pure noise and
+          gradually removing noise to generate new data.
+        </p>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why Diffusion Models Exist</span>
+        <p>
+          GANs are powerful but notoriously difficult to train&mdash;the adversarial process
+          can be unstable, and the generator can fail to learn diverse outputs (mode collapse).
+          Diffusion models avoid these problems by using a mathematically well-defined
+          noise-addition process that is easy to reverse. They produce higher-quality and
+          more diverse outputs than GANs, which is why they power modern image generation
+          systems like DALL-E and Stable Diffusion.
+        </p>
+      </div>
+
+      <h3>Forward Process (Adding Noise)</h3>
+
+      <p>
+        Starting with real data \( X_0 \), we add Gaussian noise over \( T \) steps. At
+        each step, the data becomes noisier:
+      </p>
+
+      <div class="math-block">
+        \[
+          X_t = \sqrt{1 - \beta_t} \cdot X_{t-1} + \sqrt{\beta_t} \cdot \varepsilon_t,
+          \qquad \varepsilon_t \sim \mathcal{N}(0, I)
+        \]
+      </div>
+
+      <div class="concept-box">
+        <span class="box-label">Understanding the Forward Process</span>
+        <ul>
+          <li>\( \beta_t \) is the <strong>noise schedule</strong>. It controls how much noise
+              is added at each step. \( \beta_t \) increases over time, meaning more noise is
+              added in later steps.</li>
+          <li>\( \varepsilon_t \) is fresh random noise sampled at each step.</li>
+          <li>After many steps, \( X_T \) is approximately pure Gaussian noise&mdash;all
+              structure from the original data has been destroyed.</li>
+        </ul>
+      </div>
+
+      <p>The transition at each step can be expressed as a conditional Gaussian:</p>
+
+      <div class="math-block">
+        \[
+          q(X_t | X_{t-1}) = \mathcal{N}\left(
+            X_t;\; \sqrt{\alpha_t} \cdot X_{t-1},\; (1 - \alpha_t) I
+          \right), \qquad \alpha_t = 1 - \beta_t
+        \]
+      </div>
+
+      <h4>Jumping Directly to Step \( t \)</h4>
+
+      <p>
+        A key mathematical result: we do not need to run all \( t \) steps sequentially.
+        We can compute \( X_t \) directly from \( X_0 \):
+      </p>
+
+      <div class="important-box">
+        <span class="box-label">Direct Computation</span>
+        <div class="math-block">
+          \[
+            X_t = \sqrt{\bar{\alpha}_t} \cdot X_0 + \sqrt{1 - \bar{\alpha}_t} \cdot \bar{\varepsilon}_t
+          \]
+        </div>
+        <p>where:</p>
+        <div class="math-block">
+          \[
+            \bar{\alpha}_t = \prod_{i=1}^{t} \alpha_i
+          \]
+        </div>
+        <p>
+          This is computationally efficient: during training, we can sample any time step
+          \( t \) and compute the noisy version \( X_t \) in one step.
+        </p>
+      </div>
+
+      <h3>Backward Process (Removing Noise)</h3>
+
+      <p>
+        The backward process learns to reverse the forward process. Given noisy data \( X_t \),
+        it estimates the slightly-less-noisy version \( X_{t-1} \).
+      </p>
+
+      <div class="concept-box">
+        <span class="box-label">Deriving the Backward Step</span>
+        <p>We need to estimate the conditional distribution:</p>
+        <div class="math-block">
+          \[
+            q(X_{t-1} | X_t, X_0)
+          \]
+        </div>
+        <p>Using Bayes' rule, this can be written as:</p>
+        <div class="math-block">
+          \[
+            q(X_{t-1} | X_t, X_0) = \frac{
+              q(X_t | X_{t-1}, X_0) \cdot q(X_{t-1} | X_0)
+            }{
+              q(X_t | X_0)
+            }
+          \]
+        </div>
+        <p>
+          Since all three terms on the right are Gaussian distributions (from the forward
+          process), the result is also a Gaussian, with computable mean and variance.
+        </p>
+      </div>
+
+      <div class="concept-box">
+        <span class="box-label">Backward Step Parameters</span>
+        <p>The backward step \( q(X_{t-1} | X_t, X_0) \) is a Gaussian with:</p>
+        <p><strong>Variance:</strong></p>
+        <div class="math-block">
+          \[
+            \sigma_q^2(t) = \frac{(1 - \alpha_t)(1 - \bar{\alpha}_{t-1})}{1 - \bar{\alpha}_t}
+          \]
+        </div>
+        <p><strong>Mean:</strong></p>
+        <div class="math-block">
+          \[
+            \mu_q(X_t, X_0) = \frac{\sqrt{\alpha_t}(1 - \bar{\alpha}_{t-1})}{1 - \bar{\alpha}_t} X_t
+            + \frac{\sqrt{\bar{\alpha}_{t-1}}(1 - \alpha_t)}{1 - \bar{\alpha}_t} X_0
+          \]
+        </div>
+        <p>
+          These formulas are derived entirely from the Gaussian properties of the forward process.
+        </p>
+      </div>
+
+      <h3>The Neural Network's Role</h3>
+
+      <div class="important-box">
+        <span class="box-label">What the Network Learns</span>
+        <p>
+          The backward process requires knowing \( X_0 \) (the original clean data), but at
+          generation time we don't have \( X_0 \)&mdash;we're trying to create it. The solution:
+          train a neural network \( \varepsilon_\theta(X_t, t) \) to <strong>predict the noise
+          </strong> \( \varepsilon \) that was added to create \( X_t \) from \( X_0 \).
+        </p>
+        <p>
+          Once we know the predicted noise, we can estimate \( X_0 \) from
+          the direct computation formula and then compute the backward step mean \( \mu_q \).
+          By iterating from \( X_T \) (pure noise) back to \( X_0 \), we generate new data.
+        </p>
+      </div>
+
+      <div class="step-box">
+        <span class="box-label">Diffusion Model: Generation Process</span>
+        <ol>
+          <li>Start with pure random noise \( X_T \sim \mathcal{N}(0, I) \).</li>
+          <li>For each step \( t = T, T-1, \ldots, 1 \):
+            <ul>
+              <li>Use the neural network to predict the noise: \( \hat{\varepsilon} = \varepsilon_\theta(X_t, t) \).</li>
+              <li>Estimate \( X_0 \) from the predicted noise.</li>
+              <li>Compute the backward step mean \( \mu_q \) and variance \( \sigma_q^2 \).</li>
+              <li>Sample \( X_{t-1} \) from \( \mathcal{N}(\mu_q, \sigma_q^2 I) \).</li>
+            </ul>
+          </li>
+          <li>The final \( X_0 \) is the generated data.</li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- ===== CHAPTER NAVIGATION ===== -->
+    <div class="chapter-nav">
+      <a href="chapter2.html" class="prev">
+        <span class="nav-label">&larr; Previous</span>
+        <span class="nav-title">Ch 2: AI and Machine Learning</span>
+      </a>
+      <a href="index.html" class="next">
+        <span class="nav-label">Back to &rarr;</span>
+        <span class="nav-title">Course Home</span>
+      </a>
+    </div>
+
+  </div><!-- .content -->
+</div><!-- .page-wrapper -->
+
+<!-- Reading Progress Bar -->
+<script>
+  window.addEventListener('scroll', function() {
+    var winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+    var height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+    var scrolled = (winScroll / height) * 100;
+    document.getElementById('progressBar').style.width = scrolled + '%';
+  });
+</script>
+</body>
+</html>

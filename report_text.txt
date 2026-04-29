@@ -1,0 +1,197 @@
+ĐẠI HỌC QUỐC GIA TP. HỒ CHÍ MINH
+TRƯỜNG ĐẠI HỌC KHOA HỌC TỰ NHIÊN
+_______________
+
+LAB 01
+
+Môn: Toán cho Trí tuệ nhân tạo 
+
+NGUYỄN MINH NHỰT
+MSHV: 25C15019
+Ngành: Trí tuệ nhân tạo
+
+
+
+
+
+Mạng Nơ-ron Nhiều Lớp và Cơ Chế Học
+1. Mô tả mô hình
+Bài toán đặt ra là phân loại dataset Iris gồm 150 mẫu, mỗi mẫu là một vector  gồm 4 feature liên tục (sepal length, sepal width, petal length, petal width), thuộc một trong 3 lớp: Setosa, Versicolor, Virginica. Đây là bài toán phân loại đa lớp, output là phân bố xác suất trên 3 lớp. Mã nguồn bài toán có thể tìm thấy ở 
+Để giải quyết bài toán này, ta dùng MLP (Multilayer Perceptron) - kiến trúc gồm các layer xếp chồng, mỗi layer thực hiện phép biến đổi affine rồi áp hàm kích hoạt phi tuyến . Với đủ nơ-ron, MLP có thể xấp xỉ bất kỳ hàm liên tục nào trên miền compact (universal approximation theorem). Mạng được thiết kế với 3 layer: input 4 chiều, hidden 8 nơ-ron, output 3 lớp. 
+2. Chương trình nguồn mở: PyTorch
+PyTorch (Meta AI, mã nguồn mở tại github.com/pytorch/pytorch) xây dựng dynamic computation graph tại runtime: mỗi phép toán trên tensor có requires_grad=True đều được ghi vào đồ thị. Khi gọi loss.backward(), autograd duyệt ngược đồ thị và tích lũy gradient vào .grad của từng tham số. Bước cập nhật tham số được thực hiện bởi optimizer.step().
+output = model(x)
+loss   = criterion(output, y)
+optimizer.zero_grad()   # xóa gradient cũ 
+loss.backward()         # tính gradient qua autograd
+optimizer.step()        # W ← W - η·∇W
+Cơ chế này tương ứng trực tiếp với backpropagation dẫn xuất ở Mục 5 và gradient descent ở Mục 6. 
+3. Kiến trúc và tham số
+
+Mạng có 4 nhóm tham số cần học.  và  là weight và bias của hidden layer - biến đổi input 4 chiều thành vector 8 chiều.  và  là weight và bias của output layer - chiếu vector 8 chiều xuống 3 lớp phân loại. Tổng số tham số là .
+4. Forward Pass
+Trước khi trình bày công thức, ta định nghĩa các ký hiệu được sử dụng xuyên suốt.  là vector input một mẫu.  và  là các vector pre-activation (kết quả biến đổi affine trước khi qua hàm kích hoạt) tại hidden layer và output layer.  là vector post-activation tại hidden layer.  là vector xác suất dự đoán tại output, với  là xác suất mẫu thuộc lớp .  là giá trị loss đo sai lệch giữa dự đoán và nhãn thật.  là hàm kích hoạt phi tuyến, áp elementwise lên từng phần tử của vector, với  là ký hiệu đạo hàm của  theo đối số của nó.
+Forward pass tính lần lượt qua hai layer:
+
+
+Hàm softmax chuyển logit  thành phân bố xác suất, đảm bảo  và :
+
+5. Loss Function
+Ta dùng categorical cross-entropy. Nhãn thật  được biểu diễn dạng one-hot - tức  nếu mẫu thuộc lớp , còn lại bằng 0. Loss đo khoảng cách giữa phân bố dự đoán  và nhãn thật :
+
+Vì  là one-hot, tổng này thực ra chỉ còn một số hạng duy nhất tương ứng với lớp đúng:  với  là nhãn thật. Loss nhỏ khi mô hình gán xác suất cao cho đúng lớp.
+6. Backpropagation
+Mục tiêu là tính  và  cho  để cập nhật tham số. Ta áp dụng chain rule dọc theo luồng tính toán:
+
+Đặt  là gradient của loss theo pre-activation tại layer . Đây là đại lượng trung gian quan trọng: gradient theo  và  được dẫn xuất trực tiếp từ  thông qua cấu trúc affine .
+6.1 Output layer
+Tính . Áp dụng chain rule qua softmax:
+
+Hai thành phần, trong đó  là chỉ số chạy qua tất cả các lớp output:  từ cross-entropy, và đạo hàm softmax có hai trường hợp do tính normalize toàn bộ vector:
+
+Tách tổng thành số hạng  và phần còn lại :
+
+
+Cộng lại và dùng  (vì  là one-hot):
+
+Gradient theo  và . Vì , ta có  và , do đó:
+
+6.2 Hidden layer
+Tính .  ảnh hưởng đến  chỉ qua , nên  và:
+
+Tiếp tục lan truyền qua . Vì  áp elementwise,  khi , nên:
+
+trong đó  là Hadamard product (nhân elementwise).
+Gradient theo  và . Cùng cấu trúc với output layer, vì :
+
+
+7. Gradient Descent
+Sau khi có đủ gradient, tham số được cập nhật đồng thời cho cả hai layer:
+
+trong đó  là learning rate - kiểm soát độ lớn mỗi bước cập nhật. Trong PyTorch, optimizer.step() thực hiện bước này sau khi loss.backward() đã tính đầy đủ gradient.
+8. Thực nghiệm: PyTorch vs Sklearn MLP
+Dataset. Iris gồm 150 mẫu, 4 feature, 3 lớp. Chia 80/20 train/test, chuẩn hóa bằng StandardScaler để các feature có mean 0, std 1.
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+iris  = load_iris()
+X     = StandardScaler().fit_transform(iris.data)
+y     = iris.target
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+PyTorch MLP - SGD, lr=0.1, 200 epochs, cấu trúc Linear(4→8) + ReLU + Linear(8→3):
+import torch, torch.nn as nn, torch.optim as optim
+
+X_tr = torch.FloatTensor(X_train);  y_tr = torch.LongTensor(y_train)
+X_te = torch.FloatTensor(X_test);   y_te = torch.LongTensor(y_test)
+
+model   = nn.Sequential(nn.Linear(4,8), nn.ReLU(), nn.Linear(8,3))
+opt     = optim.SGD(model.parameters(), lr=0.1)
+loss_fn = nn.CrossEntropyLoss()
+
+for _ in range(200):
+    opt.zero_grad()
+    loss_fn(model(X_tr), y_tr).backward()
+    opt.step()
+
+with torch.no_grad():
+    acc = (model(X_te).argmax(1) == y_te).float().mean().item()
+print(f"PyTorch accuracy: {acc:.4f}")
+Sklearn MLP - cùng kiến trúc và hyperparameter:
+from sklearn.neural_network import MLPClassifier
+from sklearn.metrics import accuracy_score
+
+clf = MLPClassifier(hidden_layer_sizes=(8,), activation='relu',
+                    solver='sgd', learning_rate_init=0.1,
+                    max_iter=200, random_state=42)
+clf.fit(X_train, y_train)
+print(f"Sklearn accuracy: {accuracy_score(y_test, clf.predict(X_test)):.4f}")
+Cả hai đạt ~0.97 accuracy trên test set. Kết quả tương đương xác nhận tính đúng đắn của phần lý thuyết - hai implementation độc lập cùng hội tụ về cùng một nghiệm khi dùng cùng kiến trúc và optimizer.
+
+ 
+Phương pháp Parabol thay thế Gradient
+1. Ý tưởng
+Parabolic interpolation là kỹ thuật tối ưu không dùng đạo hàm: thay vì tính , phương pháp xấp xỉ  cục bộ bằng một parabol qua 3 điểm rồi nhảy thẳng đến cực tiểu của parabol đó.
+Để tối ưu toàn bộ mạng, ta áp dụng tối ưu tọa độ (coordinate descent): lần lượt tối ưu từng tham số  trong khi giữ nguyên các tham số còn lại. Với mỗi , ta đánh giá  tại ba điểm  (với  là bước dò nhỏ), nội suy parabol và cập nhật  về cực tiểu của parabol. Không cần backpropagation. 
+2. Công thức
+Cho 3 điểm  với , cực tiểu của parabol nội suy là:
+
+Với , công thức rút gọn thành:
+
+Điều kiện hợp lệ: mẫu số khác 0 và  (parabol mở lên, có cực tiểu). Nếu không thỏa, giữ nguyên .
+Một vấn đề thực tế: khi loss thay đổi rất ít theo  (mẫu số rất nhỏ),  có thể bay rất xa. Ta giới hạn bước nhảy tối đa  với :
+
+3. Áp dụng
+Tại mỗi epoch, với mỗi tham số :
+Tính , , 
+Nội suy parabol qua , , 
+Cập nhật 
+Mạng có  tham số, mỗi epoch cần  lần tính forward pass — không cần tính gradient.
+4. Implement (NumPy)
+import numpy as np
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+
+iris  = load_iris()
+X     = StandardScaler().fit_transform(iris.data)
+y     = iris.target
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+def one_hot(labels, k=3):
+    Y = np.zeros((len(labels), k))
+    Y[np.arange(len(labels)), labels] = 1
+    return Y
+
+Y_train = one_hot(y_train)
+
+np.random.seed(42)
+W1 = np.random.randn(8, 4) * 0.1;  b1 = np.zeros((8, 1))
+W2 = np.random.randn(3, 8) * 0.1;  b2 = np.zeros((3, 1))
+
+def relu(z):    return np.maximum(0, z)
+def softmax(z):
+    e = np.exp(z - z.max(axis=0, keepdims=True))
+    return e / e.sum(axis=0, keepdims=True)
+
+def forward(X, W1, b1, W2, b2):
+    H    = relu(W1 @ X.T + b1)
+    Yhat = softmax(W2 @ H + b2)
+    return Yhat
+
+def cross_entropy(Yhat, Y):
+    return -np.mean(np.sum(Y.T * np.log(Yhat + 1e-9), axis=0))
+
+def parabolic_update(x0, L_minus, L0, L_plus, delta, C=5):
+    """Return parabola minimum; fall back to x0 if degenerate.
+    Clamps result to [x0 - C*delta, x0 + C*delta] to prevent runaway jumps."""
+    denom = 2 * (2*L0 - L_minus - L_plus)
+    if abs(denom) < 1e-10 or denom > 0:
+        return x0
+    x_star = x0 - delta * (L_minus - L_plus) / denom
+    return float(np.clip(x_star, x0 - C*delta, x0 + C*delta))
+
+delta = 0.1
+
+for epoch in range(500):
+    for matrix in [W1, b1, W2, b2]:
+        for idx in np.ndindex(matrix.shape):
+            orig = matrix[idx]
+            L0      = cross_entropy(forward(X_train, W1, b1, W2, b2), Y_train)
+
+            matrix[idx] = orig - delta
+            L_minus = cross_entropy(forward(X_train, W1, b1, W2, b2), Y_train)
+
+            matrix[idx] = orig + delta
+            L_plus  = cross_entropy(forward(X_train, W1, b1, W2, b2), Y_train)
+
+            matrix[idx] = parabolic_update(orig, L_minus, L0, L_plus, delta)
+
+Yhat_te = forward(X_test, W1, b1, W2, b2)
+acc = (Yhat_te.argmax(axis=0) == y_test).mean()
+print(f"Parabolic MLP accuracy: {acc:.4f}")
+
+5. Kết quả
+PyTorch MLP (gradient descent) đạt  trên 5-fold CV. Parabolic coordinate descent đạt  — accuracy gần tương đương dù không dùng đạo hàm lần nào. Đánh đổi là mỗi epoch cần  lần forward pass thay vì 1 lần forward + 1 lần backward như gradient descent, và cần nhiều epoch hơn (500 so với 200) để hội tụ.
+
+

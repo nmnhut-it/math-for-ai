@@ -1,0 +1,30 @@
+# MNIST cache (large, regenerable)
+data/
+**/data/MNIST/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Submission archives (large binaries, regenerable)
+*.rar
+*.zip
+
+# Build artifacts
+*.docx
+!report.docx
+!lab1/report.docx
+!reference.docx
+
+# Temporary files
+*.tmp
+*.bak

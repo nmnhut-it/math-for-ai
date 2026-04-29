@@ -1,0 +1,868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 0 — Math Foundations You Need First</title>
+  <link rel="stylesheet" href="style.css">
+  <script>
+    MathJax = { tex: { inlineMath: [['\\(','\\)']], displayMath: [['\\[','\\]']] } };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+</head>
+<body>
+<div class="progress-bar" id="progressBar"></div>
+<div class="page-wrapper">
+
+  <nav class="top-nav">
+    <a href="index.html" class="nav-brand">Math for AI</a>
+    <a href="chapter0.html" class="active">Ch 0</a>
+    <a href="chapter1.html">Ch 1</a>
+    <a href="chapter2.html">Ch 2</a>
+    <a href="chapter3.html">Ch 3</a>
+  </nav>
+
+  <div class="content">
+
+    <div class="chapter-header">
+      <div class="ch-label">Chapter 00 — Prerequisites</div>
+      <h1>Math Foundations You Need First</h1>
+      <p class="ch-desc">This chapter covers the basic math vocabulary and ideas used throughout the course. If you know what a function is, what a variable is, and basic arithmetic, you can skip this. Otherwise, start here.</p>
+    </div>
+
+    <div class="toc">
+      <div class="toc-title">In This Chapter</div>
+      <ol>
+        <li><a href="#variables">Variables and Numbers</a></li>
+        <li><a href="#functions">Functions</a></li>
+        <li><a href="#equations">Equations and Solving Them</a></li>
+        <li><a href="#graphs">Graphs of Functions</a></li>
+        <li><a href="#summation">Summation Notation</a></li>
+        <li><a href="#exponents">Exponents and Logarithms</a></li>
+        <li><a href="#derivatives">Derivatives (Rate of Change)</a></li>
+        <li><a href="#minmax">Minimum and Maximum</a></li>
+        <li><a href="#partial-derivatives">Partial Derivatives in Depth</a></li>
+        <li><a href="#chain-rule">The Chain Rule</a></li>
+        <li><a href="#vectors">Vectors</a></li>
+        <li><a href="#matrices">Matrices and Linear Algebra</a></li>
+        <li><a href="#sets">Sets and Notation</a></li>
+        <li><a href="#probability">Probability Basics</a></li>
+      </ol>
+    </div>
+
+    <!-- ===== SECTION 1: VARIABLES ===== -->
+    <div class="section" id="variables">
+      <h2>1. Variables and Numbers</h2>
+
+      <div class="concept-box">
+        <span class="box-label">What It Is</span>
+        <p>A <strong>variable</strong> is a letter that stands for a number we don't know yet. We use variables because we want to talk about rules that work for <em>any</em> number, not just one specific number.</p>
+      </div>
+
+      <p>For example, when we write \(x = 5\), we mean "the variable \(x\) currently has the value 5." But \(x\) could be anything — that's the point.</p>
+
+      <h3>Types of Numbers</h3>
+
+      <table>
+        <tr><th>Name</th><th>Symbol</th><th>What It Means</th><th>Examples</th></tr>
+        <tr><td>Natural numbers</td><td>\(\mathbb{N}\)</td><td>Counting numbers</td><td>1, 2, 3, 42, 1000</td></tr>
+        <tr><td>Integers</td><td>\(\mathbb{Z}\)</td><td>Whole numbers including negatives and zero</td><td>-3, 0, 7, -100</td></tr>
+        <tr><td>Real numbers</td><td>\(\mathbb{R}\)</td><td>All numbers on the number line, including decimals</td><td>3.14, -2.5, 0, √2</td></tr>
+      </table>
+
+      <p>When you see \(x \in \mathbb{R}\), read it as "x is a real number" (x can be any number on the number line).</p>
+
+      <p>When you see \(x \in \mathbb{R}^n\), it means x is a list of \(n\) real numbers. For example, \(x \in \mathbb{R}^3\) means x is a list of 3 numbers, like \(x = (2.1, -0.5, 7.0)\). This is called a <strong>vector</strong> and is covered in detail in Chapter 1.</p>
+
+      <div class="important-box">
+        <span class="box-label">Why You'll See This Everywhere</span>
+        <p>AI deals with data, and data is made of numbers. When we write \(x \in \mathbb{R}^n\), we're saying "x is a data point with n features." A photo with 1000 pixels could be \(x \in \mathbb{R}^{1000}\) — each pixel is one number in the list.</p>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 2: FUNCTIONS ===== -->
+    <div class="section" id="functions">
+      <h2>2. Functions</h2>
+
+      <div class="concept-box">
+        <span class="box-label">What It Is</span>
+        <p>A <strong>function</strong> is a rule that takes an input and produces exactly one output. We write it as \(f(x) = \text{something}\).</p>
+      </div>
+
+      <p>For example:</p>
+      <ul>
+        <li>\(f(x) = 2x + 1\) — this function takes any number, doubles it, then adds 1. So \(f(3) = 7\), \(f(0) = 1\), \(f(-1) = -1\).</li>
+        <li>\(f(x) = x^2\) — this function squares the input. So \(f(3) = 9\), \(f(-2) = 4\).</li>
+      </ul>
+
+      <div class="why-box">
+        <span class="box-label">Why It Matters for AI</span>
+        <p>In AI, the entire goal is to <strong>find the right function</strong>. You have data (inputs and outputs), and you want to find a function \(f\) that correctly maps inputs to outputs. The whole course is about techniques for finding that function.</p>
+      </div>
+
+      <h3>Functions with Multiple Inputs</h3>
+
+      <p>Functions can take more than one input:</p>
+
+      <div class="math-block">
+        \[ f(x_1, x_2) = 3x_1 + 5x_2 - 2 \]
+      </div>
+
+      <p>This function takes two numbers and combines them. If \(x_1 = 1\) and \(x_2 = 2\), then \(f(1, 2) = 3(1) + 5(2) - 2 = 11\).</p>
+
+      <p>The notation \(f: \mathbb{R}^n \to \mathbb{R}\) means "f takes n numbers as input and produces 1 number as output." This is the most common type of function in this course.</p>
+
+      <h3>The Notation \(f_w\)</h3>
+
+      <p>When you see \(f_w(x)\), it means "a function of x that also depends on some parameters w." The parameters w are adjustable knobs. Different values of w give different functions. <strong>Learning in AI = finding the best values of w.</strong></p>
+    </div>
+
+    <!-- ===== SECTION 3: EQUATIONS ===== -->
+    <div class="section" id="equations">
+      <h2>3. Equations and Solving Them</h2>
+
+      <div class="concept-box">
+        <span class="box-label">What It Is</span>
+        <p>An <strong>equation</strong> is a statement that two things are equal. <strong>Solving</strong> an equation means finding the value(s) of the variable that make the statement true.</p>
+      </div>
+
+      <p>Example: solve \(2x + 1 = 7\).</p>
+      <ul>
+        <li>Subtract 1 from both sides: \(2x = 6\)</li>
+        <li>Divide both sides by 2: \(x = 3\)</li>
+      </ul>
+      <p>The solution is \(x = 3\) because plugging it back in gives \(2(3) + 1 = 7\). True.</p>
+
+      <h3>Quadratic Equations</h3>
+
+      <p>A <strong>quadratic equation</strong> has the form \(ax^2 + bx + c = 0\). The "\(x^2\)" makes it quadratic (degree 2). Solutions are given by:</p>
+
+      <div class="math-block">
+        \[ x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a} \]
+      </div>
+
+      <p>The \(\pm\) means there can be two solutions (one with +, one with −). This formula is referenced in Chapter 1 as an example of a correct algorithm.</p>
+
+      <h3>When Equations Have No Formula</h3>
+
+      <p>Most equations you encounter in AI don't have a clean formula. For example, there's no formula to directly solve a neural network's parameters. That's why we need <strong>optimization</strong> — systematic methods to find approximate solutions by trial and improvement.</p>
+    </div>
+
+    <!-- ===== SECTION 4: GRAPHS ===== -->
+    <div class="section" id="graphs">
+      <h2>4. Graphs of Functions</h2>
+
+      <div class="concept-box">
+        <span class="box-label">What It Is</span>
+        <p>A <strong>graph</strong> of a function \(f(x)\) is a visual plot. The horizontal axis shows input values (x), and the vertical axis shows output values (f(x)). Every point on the curve represents one input-output pair.</p>
+      </div>
+
+      <p>Key things to notice on a graph:</p>
+      <ul>
+        <li><strong>Where the curve goes down</strong> — the function is decreasing.</li>
+        <li><strong>Where the curve goes up</strong> — the function is increasing.</li>
+        <li><strong>The lowest point</strong> — this is the <strong>minimum</strong>. Finding this is the central goal of optimization.</li>
+        <li><strong>Where the curve crosses zero</strong> — these are the <strong>roots</strong> (solutions to \(f(x) = 0\)).</li>
+      </ul>
+
+      <div class="why-box">
+        <span class="box-label">Why It Matters</span>
+        <p>In AI, we graph the <strong>loss function</strong> (how wrong the model is). Training means moving along this graph toward the lowest point. The entire field of optimization is about finding the bottom of graphs efficiently.</p>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 5: SUMMATION ===== -->
+    <div class="section" id="summation">
+      <h2>5. Summation Notation</h2>
+
+      <div class="concept-box">
+        <span class="box-label">What It Is</span>
+        <p>The symbol \(\sum\) (capital Greek letter sigma) means "add up a series of things." It's shorthand for repeated addition.</p>
+      </div>
+
+      <div class="math-block">
+        \[ \sum_{i=1}^{n} x_i = x_1 + x_2 + x_3 + \cdots + x_n \]
+      </div>
+
+      <p>Read this as: "sum of x_i, for i going from 1 to n." It just means add up all the x values from the first one to the nth one.</p>
+
+      <div class="example-box">
+        <span class="box-label">Example</span>
+        <p>If \(x_1 = 3\), \(x_2 = 7\), \(x_3 = 1\), then:</p>
+        <p>\(\sum_{i=1}^{3} x_i = 3 + 7 + 1 = 11\)</p>
+      </div>
+
+      <p>You'll see this constantly because AI works with large datasets. Instead of writing out thousands of additions, we use \(\sum\).</p>
+
+      <h3>The Product Notation</h3>
+
+      <p>\(\prod\) (capital pi) means "multiply a series of things":</p>
+
+      <div class="math-block">
+        \[ \prod_{i=1}^{n} x_i = x_1 \times x_2 \times x_3 \times \cdots \times x_n \]
+      </div>
+    </div>
+
+    <!-- ===== SECTION 6: EXPONENTS AND LOGARITHMS ===== -->
+    <div class="section" id="exponents">
+      <h2>6. Exponents and Logarithms</h2>
+
+      <h3>Exponents</h3>
+
+      <div class="concept-box">
+        <span class="box-label">What It Is</span>
+        <p>\(x^n\) means "multiply x by itself n times." So \(2^3 = 2 \times 2 \times 2 = 8\).</p>
+      </div>
+
+      <p>Special cases:</p>
+      <ul>
+        <li>\(x^0 = 1\) (anything to the power of 0 is 1)</li>
+        <li>\(x^1 = x\)</li>
+        <li>\(x^{-1} = \frac{1}{x}\)</li>
+        <li>\(x^{1/2} = \sqrt{x}\)</li>
+      </ul>
+
+      <h3>The Number \(e\)</h3>
+
+      <p>\(e \approx 2.71828\) is a special mathematical constant. It appears naturally in growth/decay processes. The function \(e^x\) (also written \(\exp(x)\)) shows up constantly in AI, especially in:</p>
+      <ul>
+        <li>The <strong>sigmoid function</strong>: \(g(x) = \frac{1}{1 + e^{-x}}\) (used in neural networks)</li>
+        <li><strong>Probability distributions</strong> (the Gaussian/normal distribution)</li>
+      </ul>
+
+      <h3>Logarithms</h3>
+
+      <div class="concept-box">
+        <span class="box-label">What It Is</span>
+        <p>A <strong>logarithm</strong> is the reverse of an exponent. If \(2^3 = 8\), then \(\log_2(8) = 3\). It answers the question: "what power do I raise the base to, to get this number?"</p>
+      </div>
+
+      <p>When you see \(\log\) or \(\ln\) in this course, it means the <strong>natural logarithm</strong> (base \(e\)). So \(\ln(e^3) = 3\).</p>
+
+      <div class="why-box">
+        <span class="box-label">Why Logs Appear in AI</span>
+        <p>Logarithms turn multiplication into addition: \(\log(a \times b) = \log(a) + \log(b)\). In AI, we often work with probabilities, which involve multiplying many small numbers together. Multiplying many small numbers gives extremely tiny results that computers struggle with. Taking the log converts this to adding numbers, which is much more computationally stable. That's why you'll see "log-likelihood" and "log-probability" everywhere.</p>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 7: DERIVATIVES ===== -->
+    <div class="section" id="derivatives">
+      <h2>7. Derivatives (Rate of Change)</h2>
+
+      <div class="concept-box">
+        <span class="box-label">What It Is</span>
+        <p>The <strong>derivative</strong> of a function tells you how fast the output changes when you slightly change the input. It is written as \(f'(x)\) or \(\frac{df}{dx}\).</p>
+      </div>
+
+      <p>If \(f(x) = x^2\), then \(f'(x) = 2x\). This means:</p>
+      <ul>
+        <li>At \(x = 3\), the function is changing at rate \(2 \times 3 = 6\) (increasing steeply).</li>
+        <li>At \(x = 0\), the rate is \(0\) (the function is flat here — this is the minimum).</li>
+        <li>At \(x = -1\), the rate is \(-2\) (the function is decreasing).</li>
+      </ul>
+
+      <h3>Common Derivative Rules</h3>
+
+      <table>
+        <tr><th>Function</th><th>Derivative</th></tr>
+        <tr><td>\(f(x) = c\) (constant)</td><td>\(f'(x) = 0\)</td></tr>
+        <tr><td>\(f(x) = x^n\)</td><td>\(f'(x) = nx^{n-1}\)</td></tr>
+        <tr><td>\(f(x) = e^x\)</td><td>\(f'(x) = e^x\)</td></tr>
+        <tr><td>\(f(x) = \ln(x)\)</td><td>\(f'(x) = \frac{1}{x}\)</td></tr>
+      </table>
+
+      <h3>Partial Derivatives</h3>
+
+      <p>When a function has multiple inputs, like \(f(x_1, x_2)\), the <strong>partial derivative</strong> \(\frac{\partial f}{\partial x_1}\) measures how \(f\) changes when you change <em>only</em> \(x_1\), keeping \(x_2\) fixed.</p>
+
+      <div class="why-box">
+        <span class="box-label">Why Derivatives Are Central to AI</span>
+        <p>The derivative tells you which direction to adjust parameters to reduce error. If the derivative is positive, the error increases when you increase the parameter — so you should decrease it. If negative, you should increase it. This is the foundation of <strong>gradient descent</strong>, the main algorithm used to train AI models.</p>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 8: MIN AND MAX ===== -->
+    <div class="section" id="minmax">
+      <h2>8. Minimum and Maximum</h2>
+
+      <div class="concept-box">
+        <span class="box-label">What It Is</span>
+        <p>The <strong>minimum</strong> of a function is the smallest output value it can produce. The <strong>maximum</strong> is the largest. Finding the minimum is written as:</p>
+      </div>
+
+      <div class="math-block">
+        \[ x^* = \arg\min_x f(x) \]
+      </div>
+
+      <p>Read this as: "\(x^*\) is the value of \(x\) that makes \(f(x)\) as small as possible." The \(\arg\min\) gives you the <em>input</em> that achieves the minimum, not the minimum value itself.</p>
+
+      <ul>
+        <li>\(\min_x f(x)\) = the smallest value of \(f\)</li>
+        <li>\(\arg\min_x f(x)\) = the \(x\) that produces that smallest value</li>
+      </ul>
+
+      <div class="example-box">
+        <span class="box-label">Example</span>
+        <p>For \(f(x) = (x - 3)^2\):</p>
+        <ul>
+          <li>\(\min f(x) = 0\) (the smallest output)</li>
+          <li>\(\arg\min f(x) = 3\) (the input that gives that output)</li>
+        </ul>
+      </div>
+
+      <div class="important-box">
+        <span class="box-label">Key Insight</span>
+        <p>At a minimum, the derivative equals zero: \(f'(x^*) = 0\). The function is "flat" — not going up or down. This is how optimization algorithms find minima: they search for points where the derivative is zero.</p>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 9: PARTIAL DERIVATIVES IN DEPTH ===== -->
+    <div class="section" id="partial-derivatives">
+      <h2>9. Partial Derivatives in Depth</h2>
+
+      <div class="concept-box">
+        <span class="box-label">What It Is</span>
+        <p>A <strong>partial derivative</strong> measures how a function changes when you adjust <em>one</em> input variable while keeping all others fixed. It is written as \(\frac{\partial f}{\partial x_1}\) (using the curly ∂ instead of straight d).</p>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why It Exists</span>
+        <p>In AI, functions almost always have multiple inputs (hundreds, millions, or billions of parameters). You need to know how each individual parameter affects the output, so you can adjust each one independently. Partial derivatives give you exactly that — the effect of one parameter at a time.</p>
+      </div>
+
+      <h3>How to Compute Partial Derivatives</h3>
+
+      <p>The rule is simple: <strong>treat every other variable as if it were a constant number</strong>, then take the derivative normally with respect to the variable you care about.</p>
+
+      <div class="example-box">
+        <span class="box-label">Example 1 — Two Variables</span>
+        <p>Let \(f(x_1, x_2) = 3x_1^2 + 5x_1 x_2 + 2x_2^2\).</p>
+        <p><strong>Partial derivative with respect to \(x_1\)</strong>: treat \(x_2\) as a constant.</p>
+        <ul>
+          <li>\(3x_1^2\) → derivative is \(6x_1\) (normal power rule)</li>
+          <li>\(5x_1 x_2\) → \(x_2\) is a constant, so this is "\(5x_2\) times \(x_1\)" → derivative is \(5x_2\)</li>
+          <li>\(2x_2^2\) → this is just a constant (no \(x_1\) in it) → derivative is \(0\)</li>
+        </ul>
+        <div class="math-block">\[ \frac{\partial f}{\partial x_1} = 6x_1 + 5x_2 \]</div>
+
+        <p><strong>Partial derivative with respect to \(x_2\)</strong>: treat \(x_1\) as a constant.</p>
+        <ul>
+          <li>\(3x_1^2\) → no \(x_2\), derivative is \(0\)</li>
+          <li>\(5x_1 x_2\) → this is "\(5x_1\) times \(x_2\)" → derivative is \(5x_1\)</li>
+          <li>\(2x_2^2\) → derivative is \(4x_2\)</li>
+        </ul>
+        <div class="math-block">\[ \frac{\partial f}{\partial x_2} = 5x_1 + 4x_2 \]</div>
+      </div>
+
+      <div class="example-box">
+        <span class="box-label">Example 2 — Three Variables</span>
+        <p>Let \(f(x, y, z) = x^2 y + yz^3 + 4xz\).</p>
+        <div class="math-block">\[ \frac{\partial f}{\partial x} = 2xy + 4z \quad \text{(treat } y, z \text{ as constants)} \]</div>
+        <div class="math-block">\[ \frac{\partial f}{\partial y} = x^2 + z^3 \quad \text{(treat } x, z \text{ as constants)} \]</div>
+        <div class="math-block">\[ \frac{\partial f}{\partial z} = 3yz^2 + 4x \quad \text{(treat } x, y \text{ as constants)} \]</div>
+      </div>
+
+      <h3>The Gradient — All Partial Derivatives Together</h3>
+
+      <p>The <strong>gradient</strong> \(\nabla f\) collects all partial derivatives into a single vector:</p>
+
+      <div class="math-block">
+        \[ \nabla f(x_1, x_2, \ldots, x_n) = \begin{bmatrix} \frac{\partial f}{\partial x_1} \\ \frac{\partial f}{\partial x_2} \\ \vdots \\ \frac{\partial f}{\partial x_n} \end{bmatrix} \]
+      </div>
+
+      <div class="important-box">
+        <span class="box-label">Key Fact</span>
+        <p>The gradient points in the direction where the function <strong>increases the fastest</strong>. If you want to decrease the function (minimize error in AI), you go in the <strong>opposite direction</strong> of the gradient. This is literally what gradient descent does: move in the direction \(-\nabla f\).</p>
+      </div>
+
+      <h3>Second Partial Derivatives and the Hessian</h3>
+
+      <p>You can take the derivative of a derivative. The <strong>second partial derivative</strong> \(\frac{\partial^2 f}{\partial x_i \partial x_j}\) means: first differentiate with respect to \(x_j\), then differentiate that result with respect to \(x_i\).</p>
+
+      <p>The <strong>Hessian matrix</strong> \(\nabla^2 f\) collects ALL second partial derivatives into a square matrix:</p>
+
+      <div class="math-block">
+        \[ \nabla^2 f = \begin{bmatrix} \frac{\partial^2 f}{\partial x_1^2} & \frac{\partial^2 f}{\partial x_1 \partial x_2} & \cdots \\ \frac{\partial^2 f}{\partial x_2 \partial x_1} & \frac{\partial^2 f}{\partial x_2^2} & \cdots \\ \vdots & \vdots & \ddots \end{bmatrix} \]
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why the Hessian Exists</span>
+        <p>The gradient tells you the <em>slope</em> (which direction the function is going). The Hessian tells you the <em>curvature</em> (how the slope itself is changing). This matters because curvature tells you whether a flat point (gradient = 0) is a minimum (curves up), maximum (curves down), or a saddle point (curves up in some directions, down in others). In AI, the Hessian helps determine whether your optimization has found a real minimum or a fake one.</p>
+      </div>
+
+      <div class="example-box">
+        <span class="box-label">Example — Computing the Hessian</span>
+        <p>For \(f(x_1, x_2) = 3x_1^2 + 5x_1 x_2 + 2x_2^2\), the gradient is:</p>
+        <div class="math-block">\[ \nabla f = \begin{bmatrix} 6x_1 + 5x_2 \\ 5x_1 + 4x_2 \end{bmatrix} \]</div>
+        <p>Now take partial derivatives of each gradient component:</p>
+        <ul>
+          <li>\(\frac{\partial}{\partial x_1}(6x_1 + 5x_2) = 6\), \(\frac{\partial}{\partial x_2}(6x_1 + 5x_2) = 5\)</li>
+          <li>\(\frac{\partial}{\partial x_1}(5x_1 + 4x_2) = 5\), \(\frac{\partial}{\partial x_2}(5x_1 + 4x_2) = 4\)</li>
+        </ul>
+        <div class="math-block">\[ \nabla^2 f = \begin{bmatrix} 6 & 5 \\ 5 & 4 \end{bmatrix} \]</div>
+        <p>Notice the Hessian is symmetric (\(5 = 5\) in off-diagonal). This is always true for well-behaved functions.</p>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 10: CHAIN RULE ===== -->
+    <div class="section" id="chain-rule">
+      <h2>10. The Chain Rule</h2>
+
+      <div class="concept-box">
+        <span class="box-label">What It Is</span>
+        <p>The <strong>chain rule</strong> is a formula for computing the derivative of a <em>composition of functions</em> — a function inside another function. If \(y = f(g(x))\), the chain rule tells you how to find \(\frac{dy}{dx}\).</p>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why It Exists</span>
+        <p>Neural networks are built by stacking functions inside functions inside functions (layers). The input goes through layer 1, the output of layer 1 feeds into layer 2, and so on. To train the network, you need the derivative of the final output with respect to every weight in every layer. The chain rule is the mathematical tool that makes this possible. <strong>Backpropagation</strong> — the core algorithm for training neural networks — is just the chain rule applied repeatedly.</p>
+      </div>
+
+      <h3>Chain Rule for Single Variables</h3>
+
+      <p>If you have two functions composed together: \(y = f(g(x))\), the derivative is:</p>
+
+      <div class="math-block">
+        \[ \frac{dy}{dx} = \frac{df}{dg} \cdot \frac{dg}{dx} \]
+      </div>
+
+      <p>In words: <strong>the derivative of the outer function (evaluated at the inner function) multiplied by the derivative of the inner function.</strong></p>
+
+      <div class="example-box">
+        <span class="box-label">Example 1 — Simple Chain Rule</span>
+        <p>Find the derivative of \(y = (3x + 2)^4\).</p>
+        <p>Identify the parts:</p>
+        <ul>
+          <li>Outer function: \(f(u) = u^4\) → derivative: \(f'(u) = 4u^3\)</li>
+          <li>Inner function: \(g(x) = 3x + 2\) → derivative: \(g'(x) = 3\)</li>
+        </ul>
+        <p>Apply chain rule:</p>
+        <div class="math-block">\[ \frac{dy}{dx} = 4(3x + 2)^3 \cdot 3 = 12(3x + 2)^3 \]</div>
+      </div>
+
+      <div class="example-box">
+        <span class="box-label">Example 2 — With Exponential</span>
+        <p>Find the derivative of \(y = e^{-x^2}\).</p>
+        <ul>
+          <li>Outer: \(f(u) = e^u\) → derivative: \(e^u\)</li>
+          <li>Inner: \(g(x) = -x^2\) → derivative: \(-2x\)</li>
+        </ul>
+        <div class="math-block">\[ \frac{dy}{dx} = e^{-x^2} \cdot (-2x) = -2x \, e^{-x^2} \]</div>
+      </div>
+
+      <h3>Chain Rule with Three Functions</h3>
+
+      <p>If \(y = f(g(h(x)))\), the chain extends:</p>
+
+      <div class="math-block">
+        \[ \frac{dy}{dx} = \frac{df}{dg} \cdot \frac{dg}{dh} \cdot \frac{dh}{dx} \]</div>
+
+      <p>Each link in the chain contributes one factor. A neural network with 10 layers means a chain of 10 factors multiplied together. This is exactly how backpropagation works.</p>
+
+      <div class="example-box">
+        <span class="box-label">Example 3 — Three-Layer Chain</span>
+        <p>Let \(y = \ln(\sin(x^2))\). Three functions stacked: \(\ln(\cdot)\) wraps \(\sin(\cdot)\) which wraps \(x^2\).</p>
+        <ul>
+          <li>Outermost: \(f(u) = \ln(u)\) → derivative: \(\frac{1}{u}\)</li>
+          <li>Middle: \(g(v) = \sin(v)\) → derivative: \(\cos(v)\)</li>
+          <li>Innermost: \(h(x) = x^2\) → derivative: \(2x\)</li>
+        </ul>
+        <div class="math-block">\[ \frac{dy}{dx} = \frac{1}{\sin(x^2)} \cdot \cos(x^2) \cdot 2x = \frac{2x \cos(x^2)}{\sin(x^2)} \]</div>
+      </div>
+
+      <h3>Chain Rule with Multiple Variables</h3>
+
+      <p>When functions have multiple inputs, the chain rule uses partial derivatives and sums:</p>
+
+      <p>If \(z = f(u, v)\) where \(u = g(x, y)\) and \(v = h(x, y)\), then:</p>
+
+      <div class="math-block">
+        \[ \frac{\partial z}{\partial x} = \frac{\partial f}{\partial u} \cdot \frac{\partial u}{\partial x} + \frac{\partial f}{\partial v} \cdot \frac{\partial v}{\partial x} \]
+      </div>
+
+      <p>You sum over all paths from \(z\) to \(x\). Each path is a product of partial derivatives along that path.</p>
+
+      <div class="important-box">
+        <span class="box-label">This Is Backpropagation</span>
+        <p>In a neural network, the loss \(L\) depends on output \(z\), which depends on hidden values \(t_j\), which depend on weights \(a_{ij}\). To find \(\frac{\partial L}{\partial a_{ij}}\), you trace all paths from \(L\) back to \(a_{ij}\) using the chain rule, multiplying partial derivatives along each path and summing over all paths. That's the entire backpropagation algorithm.</p>
+      </div>
+
+      <div class="example-box">
+        <span class="box-label">Example 4 — Neural Network Chain Rule</span>
+        <p>Suppose a single neuron computes:</p>
+        <ul>
+          <li>Weighted sum: \(u = w_0 + w_1 x_1 + w_2 x_2\)</li>
+          <li>Activation: \(z = g(u) = \frac{1}{1 + e^{-u}}\) (sigmoid)</li>
+          <li>Loss: \(L = \frac{1}{2}(z - y)^2\)</li>
+        </ul>
+        <p>To find how the loss changes when we adjust weight \(w_1\):</p>
+        <div class="math-block">\[ \frac{\partial L}{\partial w_1} = \frac{\partial L}{\partial z} \cdot \frac{\partial z}{\partial u} \cdot \frac{\partial u}{\partial w_1} \]</div>
+        <p>Computing each piece:</p>
+        <ul>
+          <li>\(\frac{\partial L}{\partial z} = z - y\) (how loss changes with output)</li>
+          <li>\(\frac{\partial z}{\partial u} = z(1 - z)\) (sigmoid derivative — a known formula)</li>
+          <li>\(\frac{\partial u}{\partial w_1} = x_1\) (because \(u = w_0 + w_1 x_1 + w_2 x_2\))</li>
+        </ul>
+        <div class="math-block">\[ \frac{\partial L}{\partial w_1} = (z - y) \cdot z(1 - z) \cdot x_1 \]</div>
+        <p>This tells you exactly how much to adjust \(w_1\) to reduce the error. Multiply by a learning rate \(\alpha\) and subtract from the current weight: \(w_1 \leftarrow w_1 - \alpha \cdot \frac{\partial L}{\partial w_1}\).</p>
+      </div>
+    </div>
+
+    <!-- ===== SECTION 11: VECTORS ===== -->
+    <div class="section" id="vectors">
+      <h2>11. Vectors</h2>
+
+      <div class="concept-box">
+        <span class="box-label">What It Is</span>
+        <p>A <strong>vector</strong> is an ordered list of numbers. A vector with \(n\) numbers is called an \(n\)-dimensional vector and belongs to \(\mathbb{R}^n\).</p>
+      </div>
+
+      <div class="math-block">
+        \[ \mathbf{x} = \begin{bmatrix} x_1 \\ x_2 \\ \vdots \\ x_n \end{bmatrix} = (x_1, x_2, \ldots, x_n) \in \mathbb{R}^n \]
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why Vectors Exist in AI</span>
+        <p>All data in AI is stored as vectors. A single data point with 5 features is a vector in \(\mathbb{R}^5\). An image with 784 pixels is a vector in \(\mathbb{R}^{784}\). Model weights are also stored as vectors. Every computation in AI — from input processing to gradient updates — operates on vectors.</p>
+      </div>
+
+      <h3>Vector Operations</h3>
+
+      <h4>Addition</h4>
+      <p>Add two vectors by adding their corresponding entries:</p>
+      <div class="math-block">
+        \[ \begin{bmatrix} 1 \\ 3 \\ 5 \end{bmatrix} + \begin{bmatrix} 2 \\ -1 \\ 4 \end{bmatrix} = \begin{bmatrix} 1+2 \\ 3+(-1) \\ 5+4 \end{bmatrix} = \begin{bmatrix} 3 \\ 2 \\ 9 \end{bmatrix} \]
+      </div>
+      <p>Both vectors must have the same number of entries. You cannot add a 3D vector to a 2D vector.</p>
+
+      <h4>Scalar Multiplication</h4>
+      <p>Multiply a vector by a single number (scalar) — multiply every entry:</p>
+      <div class="math-block">
+        \[ 3 \cdot \begin{bmatrix} 2 \\ -1 \\ 4 \end{bmatrix} = \begin{bmatrix} 6 \\ -3 \\ 12 \end{bmatrix} \]
+      </div>
+
+      <h4>Dot Product (Inner Product)</h4>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>The <strong>dot product</strong> of two vectors \(\mathbf{x}\) and \(\mathbf{y}\) is a single number computed by multiplying corresponding entries and adding them all up:</p>
+      </div>
+
+      <div class="math-block">
+        \[ \mathbf{x} \cdot \mathbf{y} = \langle \mathbf{x}, \mathbf{y} \rangle = \sum_{i=1}^{n} x_i \cdot y_i = x_1 y_1 + x_2 y_2 + \cdots + x_n y_n \]
+      </div>
+
+      <div class="example-box">
+        <span class="box-label">Example</span>
+        <p>\(\begin{bmatrix} 2 \\ 3 \\ -1 \end{bmatrix} \cdot \begin{bmatrix} 4 \\ -2 \\ 5 \end{bmatrix} = (2)(4) + (3)(-2) + (-1)(5) = 8 - 6 - 5 = -3\)</p>
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why the Dot Product Matters</span>
+        <p>The dot product is the most fundamental operation in neural networks. Every neuron computes a dot product: it multiplies each input by its corresponding weight and sums the results. When you see \(\mathbf{w} \cdot \mathbf{x}\) or \(\mathbf{w}^T \mathbf{x}\), it means "compute the weighted sum of inputs" — which is what every neuron does.</p>
+      </div>
+
+      <h4>Norm (Length/Magnitude)</h4>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>The <strong>norm</strong> of a vector, written \(\|\mathbf{x}\|\), measures its "length" or "size":</p>
+      </div>
+
+      <div class="math-block">
+        \[ \|\mathbf{x}\| = \sqrt{x_1^2 + x_2^2 + \cdots + x_n^2} = \sqrt{\sum_{i=1}^{n} x_i^2} = \sqrt{\mathbf{x} \cdot \mathbf{x}} \]
+      </div>
+
+      <div class="example-box">
+        <span class="box-label">Example</span>
+        <p>\(\left\| \begin{bmatrix} 3 \\ 4 \end{bmatrix} \right\| = \sqrt{3^2 + 4^2} = \sqrt{9 + 16} = \sqrt{25} = 5\)</p>
+      </div>
+
+      <p>In AI, \(\|\mathbf{x} - \mathbf{y}\|\) measures how "far apart" two vectors are. The loss function \(\|A\mathbf{w} - B\|^2\) measures the total distance between predictions and actual values — the thing we're trying to minimize.</p>
+
+      <h4>Transpose</h4>
+
+      <p>A column vector written sideways becomes a row vector. This is called the <strong>transpose</strong>, written \(\mathbf{x}^T\):</p>
+
+      <div class="math-block">
+        \[ \mathbf{x} = \begin{bmatrix} 1 \\ 2 \\ 3 \end{bmatrix} \quad \Rightarrow \quad \mathbf{x}^T = \begin{bmatrix} 1 & 2 & 3 \end{bmatrix} \]
+      </div>
+
+      <p>The dot product can be written as matrix multiplication: \(\mathbf{x} \cdot \mathbf{y} = \mathbf{x}^T \mathbf{y}\). You'll see this notation throughout the course.</p>
+    </div>
+
+    <!-- ===== SECTION 12: MATRICES ===== -->
+    <div class="section" id="matrices">
+      <h2>12. Matrices and Linear Algebra</h2>
+
+      <div class="concept-box">
+        <span class="box-label">What It Is</span>
+        <p>A <strong>matrix</strong> is a rectangular grid of numbers arranged in rows and columns. A matrix with \(n\) rows and \(m\) columns is called an \(n \times m\) matrix and belongs to \(\mathbb{R}^{n \times m}\).</p>
+      </div>
+
+      <div class="math-block">
+        \[ A = \begin{bmatrix} a_{11} & a_{12} & a_{13} \\ a_{21} & a_{22} & a_{23} \end{bmatrix} \in \mathbb{R}^{2 \times 3} \]
+      </div>
+
+      <p>The entry \(a_{ij}\) sits in row \(i\) and column \(j\). First subscript = row, second = column.</p>
+
+      <div class="why-box">
+        <span class="box-label">Why Matrices Exist in AI</span>
+        <p>Matrices are how we organize and process large amounts of data efficiently. A dataset with 1000 data points, each having 10 features, is stored as a \(1000 \times 10\) matrix. All the weights connecting one neural network layer to the next are stored as a matrix. Matrix operations let us process entire datasets and layers in a single operation instead of looping through items one at a time.</p>
+      </div>
+
+      <h3>Matrix Addition</h3>
+
+      <p>Add two matrices of the <strong>same size</strong> by adding corresponding entries:</p>
+
+      <div class="math-block">
+        \[ \begin{bmatrix} 1 & 2 \\ 3 & 4 \end{bmatrix} + \begin{bmatrix} 5 & 6 \\ 7 & 8 \end{bmatrix} = \begin{bmatrix} 6 & 8 \\ 10 & 12 \end{bmatrix} \]
+      </div>
+
+      <h3>Matrix Multiplication</h3>
+
+      <div class="important-box">
+        <span class="box-label">Critical Operation</span>
+        <p>Matrix multiplication is NOT entry-by-entry. It follows a specific rule and is the most important operation in all of AI.</p>
+      </div>
+
+      <p>To multiply matrix \(A\) (\(n \times p\)) by matrix \(B\) (\(p \times m\)), the result \(C = A \cdot B\) is an \(n \times m\) matrix where:</p>
+
+      <div class="math-block">
+        \[ c_{ij} = \sum_{k=1}^{p} a_{ik} \cdot b_{kj} \]
+      </div>
+
+      <p>Each entry \(c_{ij}\) is the <strong>dot product of row \(i\) of \(A\) with column \(j\) of \(B\)</strong>.</p>
+
+      <div class="important-box">
+        <span class="box-label">Size Rule</span>
+        <p>You can only multiply \(A \cdot B\) if the <strong>number of columns in A equals the number of rows in B</strong>. The result has the number of rows from A and the number of columns from B.</p>
+        <p>\((n \times \textbf{p}) \cdot (\textbf{p} \times m) = (n \times m)\). The inner dimensions must match.</p>
+      </div>
+
+      <div class="example-box">
+        <span class="box-label">Example — Step by Step</span>
+        <p>Multiply a \(2 \times 3\) matrix by a \(3 \times 2\) matrix:</p>
+        <div class="math-block">
+          \[ \begin{bmatrix} 1 & 2 & 3 \\ 4 & 5 & 6 \end{bmatrix} \cdot \begin{bmatrix} 7 & 8 \\ 9 & 10 \\ 11 & 12 \end{bmatrix} = \begin{bmatrix} ? & ? \\ ? & ? \end{bmatrix} \]
+        </div>
+        <p>Result is \(2 \times 2\). Computing each entry:</p>
+        <ul>
+          <li>Row 1 of A · Column 1 of B: \(1 \cdot 7 + 2 \cdot 9 + 3 \cdot 11 = 7 + 18 + 33 = 58\)</li>
+          <li>Row 1 of A · Column 2 of B: \(1 \cdot 8 + 2 \cdot 10 + 3 \cdot 12 = 8 + 20 + 36 = 64\)</li>
+          <li>Row 2 of A · Column 1 of B: \(4 \cdot 7 + 5 \cdot 9 + 6 \cdot 11 = 28 + 45 + 66 = 139\)</li>
+          <li>Row 2 of A · Column 2 of B: \(4 \cdot 8 + 5 \cdot 10 + 6 \cdot 12 = 32 + 50 + 72 = 154\)</li>
+        </ul>
+        <div class="math-block">
+          \[ = \begin{bmatrix} 58 & 64 \\ 139 & 154 \end{bmatrix} \]
+        </div>
+      </div>
+
+      <h3>Matrix-Vector Multiplication</h3>
+
+      <p>A very common case: multiplying a matrix by a vector. This is how neural network layers work.</p>
+
+      <div class="math-block">
+        \[ \begin{bmatrix} 2 & 3 \\ 1 & -1 \\ 4 & 0 \end{bmatrix} \cdot \begin{bmatrix} 5 \\ 2 \end{bmatrix} = \begin{bmatrix} 2 \cdot 5 + 3 \cdot 2 \\ 1 \cdot 5 + (-1) \cdot 2 \\ 4 \cdot 5 + 0 \cdot 2 \end{bmatrix} = \begin{bmatrix} 16 \\ 3 \\ 20 \end{bmatrix} \]
+      </div>
+
+      <p>A \(3 \times 2\) matrix times a 2D vector gives a 3D vector. Each entry in the result is the dot product of one row of the matrix with the input vector.</p>
+
+      <div class="why-box">
+        <span class="box-label">Why This Is Important</span>
+        <p>In a neural network layer with 2 input neurons and 3 output neurons, the weight matrix is \(3 \times 2\). The forward pass is exactly this matrix-vector multiplication: input vector goes in, output vector comes out. Each output neuron computes a dot product of its weights with the input. Matrix multiplication does all neurons at once.</p>
+      </div>
+
+      <h3>The Identity Matrix</h3>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>The <strong>identity matrix</strong> \(I\) is a square matrix with 1s on the diagonal and 0s everywhere else. Multiplying any matrix by \(I\) gives back the same matrix: \(A \cdot I = I \cdot A = A\).</p>
+      </div>
+
+      <div class="math-block">
+        \[ I = \begin{bmatrix} 1 & 0 & 0 \\ 0 & 1 & 0 \\ 0 & 0 & 1 \end{bmatrix} \quad \text{(3×3 identity)} \]
+      </div>
+
+      <p>It's the matrix equivalent of multiplying a number by 1.</p>
+
+      <h3>Matrix Inverse</h3>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>The <strong>inverse</strong> of a square matrix \(A\), written \(A^{-1}\), is the matrix that "undoes" \(A\):</p>
+      </div>
+
+      <div class="math-block">
+        \[ A \cdot A^{-1} = A^{-1} \cdot A = I \]
+      </div>
+
+      <p>Not every matrix has an inverse. A matrix that has one is called <strong>invertible</strong> (or non-singular). A matrix without one is called <strong>singular</strong>.</p>
+
+      <div class="why-box">
+        <span class="box-label">Why Inverses Matter in AI</span>
+        <p>The closed-form solution for linear regression is \(\mathbf{w}^* = (A^T A)^{-1} A^T B\). This formula requires computing a matrix inverse. If \(A^T A\) is not invertible, you can't directly solve for the optimal weights using this formula (and must use iterative methods like gradient descent instead).</p>
+      </div>
+
+      <h3>Matrix Transpose</h3>
+
+      <p>The <strong>transpose</strong> \(A^T\) flips a matrix over its diagonal — rows become columns and columns become rows:</p>
+
+      <div class="math-block">
+        \[ A = \begin{bmatrix} 1 & 2 & 3 \\ 4 & 5 & 6 \end{bmatrix} \quad \Rightarrow \quad A^T = \begin{bmatrix} 1 & 4 \\ 2 & 5 \\ 3 & 6 \end{bmatrix} \]
+      </div>
+
+      <p>If \(A\) is \(n \times m\), then \(A^T\) is \(m \times n\). A matrix equal to its own transpose (\(A = A^T\)) is called <strong>symmetric</strong>.</p>
+
+      <h3>Determinant</h3>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>The <strong>determinant</strong> of a square matrix, written \(\det(A)\) or \(|A|\), is a single number computed from the matrix entries. Its key property: <strong>a matrix is invertible if and only if its determinant is not zero</strong>.</p>
+      </div>
+
+      <p>For a \(2 \times 2\) matrix:</p>
+
+      <div class="math-block">
+        \[ \det\begin{bmatrix} a & b \\ c & d \end{bmatrix} = ad - bc \]
+      </div>
+
+      <div class="example-box">
+        <span class="box-label">Example</span>
+        <p>\(\det\begin{bmatrix} 3 & 1 \\ 2 & 4 \end{bmatrix} = 3 \cdot 4 - 1 \cdot 2 = 12 - 2 = 10\). Since \(10 \neq 0\), this matrix is invertible.</p>
+        <p>\(\det\begin{bmatrix} 2 & 4 \\ 1 & 2 \end{bmatrix} = 2 \cdot 2 - 4 \cdot 1 = 4 - 4 = 0\). Since \(0\), this matrix is NOT invertible.</p>
+      </div>
+
+      <p>For larger matrices, the determinant is computed recursively by expanding along a row or column (cofactor expansion). The formula grows complex, but the concept is the same: it's one number that tells you if the matrix is invertible.</p>
+
+      <h3>Positive Semidefinite Matrices</h3>
+
+      <div class="def-box">
+        <span class="box-label">Definition</span>
+        <p>A symmetric matrix \(A\) is <strong>positive semidefinite</strong> (written \(A \geq 0\)) if for every vector \(\mathbf{h}\):</p>
+      </div>
+
+      <div class="math-block">
+        \[ \mathbf{h}^T \cdot A \cdot \mathbf{h} \geq 0 \]
+      </div>
+
+      <div class="why-box">
+        <span class="box-label">Why This Matters</span>
+        <p>Positive semidefinite matrices determine convexity. If the Hessian matrix of a function is positive semidefinite, the function is convex. Convex functions have a single minimum — so gradient descent is guaranteed to find the best solution. This is the mathematical test that tells you whether your optimization problem is "easy" (convex) or "hard" (non-convex).</p>
+      </div>
+
+      <h3>Summary: How Linear Algebra Powers AI</h3>
+
+      <table>
+        <tr><th>Concept</th><th>Where It's Used in AI</th></tr>
+        <tr><td>Vectors</td><td>Representing data points, model weights, gradients</td></tr>
+        <tr><td>Dot product</td><td>What every neuron computes (weighted sum of inputs)</td></tr>
+        <tr><td>Norm</td><td>Measuring errors, distances between predictions and targets</td></tr>
+        <tr><td>Matrices</td><td>Storing weights between layers, storing datasets</td></tr>
+        <tr><td>Matrix multiplication</td><td>Forward pass through neural network layers</td></tr>
+        <tr><td>Transpose</td><td>Computing gradients, loss function formulas</td></tr>
+        <tr><td>Inverse</td><td>Closed-form solution for linear regression</td></tr>
+        <tr><td>Determinant</td><td>Checking if inverse exists (if solution is computable)</td></tr>
+        <tr><td>Gradient (vector)</td><td>Direction to update weights in gradient descent</td></tr>
+        <tr><td>Hessian (matrix)</td><td>Checking if a function is convex (easy to optimize)</td></tr>
+        <tr><td>Positive semidefinite</td><td>Test for convexity via the Hessian</td></tr>
+      </table>
+    </div>
+
+    <!-- ===== SECTION 13: SETS ===== -->
+    <div class="section" id="sets">
+      <h2>13. Sets and Notation</h2>
+
+
+      <div class="concept-box">
+        <span class="box-label">What It Is</span>
+        <p>A <strong>set</strong> is a collection of items. We write sets with curly braces: \(\{1, 2, 3\}\) is the set containing 1, 2, and 3.</p>
+      </div>
+
+      <p>Notation you'll see:</p>
+
+      <table>
+        <tr><th>Symbol</th><th>Meaning</th><th>Example</th></tr>
+        <tr><td>\(\in\)</td><td>"is a member of" / "belongs to"</td><td>\(x \in \{1,2,3\}\) means x is 1, 2, or 3</td></tr>
+        <tr><td>\(\notin\)</td><td>"is not a member of"</td><td>\(4 \notin \{1,2,3\}\)</td></tr>
+        <tr><td>\(\subset\)</td><td>"is a subset of"</td><td>\(\{1,2\} \subset \{1,2,3\}\)</td></tr>
+        <tr><td>\(\cup\)</td><td>union (combine two sets)</td><td>\(\{1,2\} \cup \{3\} = \{1,2,3\}\)</td></tr>
+        <tr><td>\(\cap\)</td><td>intersection (items in both sets)</td><td>\(\{1,2\} \cap \{2,3\} = \{2\}\)</td></tr>
+        <tr><td>\(\emptyset\)</td><td>empty set (no items)</td><td></td></tr>
+        <tr><td>\(\forall\)</td><td>"for all" / "for every"</td><td>\(\forall x \in S\) means "for every x in S"</td></tr>
+        <tr><td>\(\exists\)</td><td>"there exists"</td><td>\(\exists x\) means "there is at least one x"</td></tr>
+      </table>
+
+      <h3>Intervals</h3>
+
+      <p>\([a, b]\) means all real numbers from \(a\) to \(b\), including both endpoints. \((a, b)\) means the same but <em>excluding</em> the endpoints. \([0, 1]\) is all numbers from 0 to 1.</p>
+    </div>
+
+    <!-- ===== SECTION 14: PROBABILITY ===== -->
+    <div class="section" id="probability">
+      <h2>14. Probability Basics</h2>
+
+      <div class="concept-box">
+        <span class="box-label">What It Is</span>
+        <p><strong>Probability</strong> is a number between 0 and 1 that measures how likely something is to happen. 0 means impossible, 1 means certain, 0.5 means equally likely to happen or not.</p>
+      </div>
+
+      <p>Key notation:</p>
+      <ul>
+        <li>\(P(A)\) = probability of event A happening</li>
+        <li>\(P(A|B)\) = probability of A happening <em>given that</em> B has already happened (conditional probability)</li>
+        <li>\(P(A, B)\) = probability of both A and B happening (joint probability)</li>
+      </ul>
+
+      <h3>Expected Value</h3>
+
+      <div class="concept-box">
+        <span class="box-label">What It Is</span>
+        <p>The <strong>expected value</strong> \(E[X]\) is the average outcome you'd get if you repeated an experiment infinitely many times. It is written as:</p>
+      </div>
+
+      <div class="math-block">
+        \[ E[X] = \sum_i x_i \cdot P(x_i) \]
+      </div>
+
+      <p>"Multiply each possible outcome by its probability, then add them all up."</p>
+
+      <h3>Normal (Gaussian) Distribution</h3>
+
+      <p>The <strong>normal distribution</strong> \(\mathcal{N}(\mu, \sigma^2)\) is a probability distribution shaped as a bell curve. It is defined by two parameters:</p>
+      <ul>
+        <li>\(\mu\) (mu) = the center (mean/average)</li>
+        <li>\(\sigma^2\) (sigma squared) = the spread (variance). Larger \(\sigma^2\) = more spread out.</li>
+      </ul>
+
+      <div class="why-box">
+        <span class="box-label">Why This Matters</span>
+        <p>The Gaussian distribution appears throughout AI. Neural networks often initialize weights from a Gaussian distribution. Diffusion models (Chapter 3) add Gaussian noise to data. The entire theory of generative AI relies on properties of Gaussian distributions.</p>
+      </div>
+    </div>
+
+    <!-- ===== BOTTOM NAV ===== -->
+    <div class="chapter-nav">
+      <a href="index.html">
+        <span class="nav-label">Back to</span>
+        <span class="nav-title">Course Home</span>
+      </a>
+      <a href="chapter1.html" class="next">
+        <span class="nav-label">Next Chapter</span>
+        <span class="nav-title">Optimization for AI</span>
+      </a>
+    </div>
+
+    <div class="footer">Chapter 0 &middot; Math Foundations</div>
+  </div>
+</div>
+
+<script>
+window.addEventListener('scroll', () => {
+  const h = document.documentElement;
+  const pct = (h.scrollTop / (h.scrollHeight - h.clientHeight)) * 100;
+  document.getElementById('progressBar').style.width = pct + '%';
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,57 @@
+Device: cpu  Z_DIM=100  BATCH=256
+Dataset: MNIST  60000 samples
+
+=======================================================
+PHASE 0: Load/Train GAN
+=======================================================
+  Loaded output_lab2/G_final.pth
+
+=======================================================
+PHASE 1: Train CNN Detector
+=======================================================
+  Detector accuracy: 0.9555
+
+=======================================================
+KHAO SAT 1: Latent Space Walk
+=======================================================
+  Linear interp  | mean step diff: 0.0533  std: 0.0271
+  SLERP          | mean step diff: 0.0550  std: 0.0290
+
+=======================================================
+KHAO SAT 2: Saliency Map (Input Gradient)
+=======================================================
+  Real images | mean saliency: 0.03862  top-10% concentration: 0.397
+  Fake images | mean saliency: 0.00005  top-10% concentration: 0.347
+
+=======================================================
+KHAO SAT 3: PGD Attack + Saliency change
+=======================================================
+  eps= 0.00  detector_acc=1.0000  mean_P(real)=0.0016
+  eps= 0.01  detector_acc=1.0000  mean_P(real)=0.0033
+  eps= 0.02  detector_acc=0.9980  mean_P(real)=0.0089
+  eps= 0.05  detector_acc=0.9540  mean_P(real)=0.0715
+  eps= 0.10  detector_acc=0.6820  mean_P(real)=0.3315
+  eps= 0.15  detector_acc=0.3780  mean_P(real)=0.6207
+  eps= 0.20  detector_acc=0.1780  mean_P(real)=0.8030
+  eps= 0.30  detector_acc=0.0720  mean_P(real)=0.9113
+  Saliency (truoc attack) vs |perturbation| | mean Pearson r: 0.316
+
+=======================================================
+SUMMARY
+=======================================================
+  Detector clean accuracy: 0.9555
+  K1: linear interp diff  = 0.0533 +/- 0.0271
+  K1: SLERP diff           = 0.0550 +/- 0.0290
+  K2: mean saliency real   = 0.03862
+  K2: mean saliency fake   = 0.00005
+  K3: acc at eps=0.10      = 0.6820
+  K3: acc at eps=0.20      = 0.1780
+  K3: corr(saliency, |perturbation|) = 0.316
+
+  Output files:
+    gan_samples.png
+    survey1_latent_walk.png
+    survey1_smoothness.png
+    survey2_saliency.png
+    survey3_attack_curve.png
+    survey3_saliency_change.png

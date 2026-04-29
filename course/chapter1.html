@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chapter 1: Optimization for AI</title>
+  <link rel="stylesheet" href="style.css">
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)']],
+        displayMath: [['\\[', '\\]']],
+        processEscapes: true
+      },
+      options: { skipHtmlTags: ['script','noscript','style','textarea','pre'] }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+</head>
+<body>
+
+<div class="progress-bar" id="progressBar"></div>
+
+<nav class="top-nav">
+  <span class="nav-brand">Math for AI</span>
+  <a href="index.html">Home</a>
+  <a href="chapter1.html" class="active">Chapter 1</a>
+  <a href="chapter2.html">Chapter 2</a>
+  <a href="chapter3.html">Chapter 3</a>
+</nav>
+
+<div class="page-wrapper">
+<div class="content">
+
+<!-- ============ HEADER ============ -->
+<div class="chapter-header">
+  <div class="ch-label">Chapter 01</div>
+  <h1>Optimization for AI</h1>
+  <p class="ch-desc">How to find the best solution when perfect answers are impossible &mdash; from classical algorithms to gradient descent and convex optimization.</p>
+</div>
+
+<!-- ============ TABLE OF CONTENTS ============ -->
+<div class="toc">
+  <div class="toc-title">Contents</div>
+  <ol>
+    <li><a href="#algorithms-to-heuristics">From Algorithms to Heuristics</a></li>
+    <li><a href="#binary-search">Binary Search for Root Finding</a></li>
+    <li><a href="#optimization-reformulation">General Optimization Reformulation</a></li>
+    <li><a href="#greedy-search">Greedy Search</a></li>
+    <li><a href="#numerical-optimization">Numerical Optimization</a></li>
+    <li><a href="#linear-algebra">Definitions and Notation (Linear Algebra)</a></li>
+    <li><a href="#gradient-hessian">Gradient and Hessian</a></li>
+    <li><a href="#convex-optimization">Convex Optimization</a></li>
+    <li><a href="#special-functions">Special Functions in Convex Optimization</a></li>
+    <li><a href="#non-convex">Non-Convex Optimization and Gradient Descent</a></li>
+    <li><a href="#brents-method">Brent's Method</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 1: FROM ALGORITHMS TO HEURISTICS -->
+<!-- ============================================================ -->
+<div class="section" id="algorithms-to-heuristics">
+  <h2>1. From Algorithms to Heuristics</h2>
+
+  <h3>What is an Algorithm?</h3>
+
+  <div class="def-box">
+    <span class="box-label">Definition &mdash; Algorithm</span>
+    <p>An <strong>algorithm</strong> is a finite sequence of well-defined instructions that transforms an input into an output. Every algorithm must satisfy two properties:</p>
+    <ol>
+      <li><strong>Correctness</strong> &mdash; the algorithm always produces the correct result for every valid input.</li>
+      <li><strong>Finiteness</strong> &mdash; the algorithm must terminate (finish running) after a bounded number of steps.</li>
+    </ol>
+  </div>
+
+  <div class="why-box">
+    <span class="box-label">Why This Matters</span>
+    <p>These two properties define the ideal we aim for when solving problems with computers. In practice, real-world problems often violate one or both of these properties, which is why we need alternatives (heuristics). Understanding the ideal helps us understand <em>what we are giving up</em> and <em>why</em>.</p>
+  </div>
+
+  <h3>Correctness and Its Limits</h3>
+
+  <p><strong>Correctness</strong> means the algorithm works regardless of the specific input &mdash; it does not depend on context or luck. For example, the quadratic formula always gives the roots of any quadratic equation:</p>
+
+  <div class="math-block">
+    \[ x = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a} \]
+  </div>
+
+  <p>Given any values of \(a\), \(b\), and \(c\) (with \(a \neq 0\)), this formula produces the correct roots every time. There is no guessing involved.</p>
+
+  <p>However, correctness in theory does not guarantee correctness in practice. Two sources of error arise when running algorithms on real computers:</p>
+
+  <ul>
+    <li><strong>Roundoff error</strong> &mdash; hardware represents numbers with finite precision (e.g., 64-bit floating point). The true mathematical answer may not be exactly representable, so the computer rounds it. These small errors can accumulate.</li>
+    <li><strong>Truncation error</strong> &mdash; programming languages and libraries sometimes approximate infinite processes (like infinite series) by cutting them off after a finite number of terms.</li>
+  </ul>
+
+  <div class="important-box">
+    <span class="box-label">Stability</span>
+    <p>A solution is <strong>stable</strong> if small changes in the input (or small computational errors) cause only small changes in the output. When we say a result "may not be stable," we mean that tiny perturbations &mdash; like roundoff &mdash; could cause the output to change significantly. Stability is a critical practical concern even for mathematically correct algorithms.</p>
+  </div>
+
+  <h3>Finiteness and Hard Problems</h3>
+
+  <p><strong>Finiteness</strong> means the algorithm must return a result within an acceptable amount of time. An algorithm that technically terminates but takes billions of years is useless in practice.</p>
+
+  <p>Many problems in computer science have been formally proven to be "hard" &mdash; meaning no known algorithm can solve them quickly for all inputs, even though the set of possible answers is finite. These are classified as <strong>NP-hard</strong> problems.</p>
+
+  <div class="example-box">
+    <span class="box-label">Example &mdash; Integer Factorization</span>
+    <p>Given a large number \(n = p \times q\) (where \(p\) and \(q\) are both prime), finding \(p\) and \(q\) is computationally hard. There is no known efficient algorithm for this. This hardness is the basis of <strong>RSA cryptography</strong> &mdash; RSA security relies on the assumption that factoring large numbers is infeasible.</p>
+    <p><strong>Mersenne primes</strong> are primes of the form \(p = 2^r + 1\) where \(r\) is itself prime. For example, \(r = 2\) gives \(p = 5\), \(r = 3\) gives \(p = 9\) (not prime), etc. Some values of \(r\) yield primes and some do not. Using Mersenne primes for factorization is finite (the search space is bounded) but the solution may not be stable &mdash; small changes in the input can change which factors are found.</p>
+  </div>
+
+  <h3>The Problem with Continuous Domains</h3>
+
+  <p>For discrete problems (like factoring integers), the search space is at least finite, even if large. But many problems have <strong>continuous</strong> domains.</p>
+
+  <p>Consider the problem: find \(x\) such that \(f(x) = 0\) on the interval \([a, b]\), where \(f\) is continuous. Even though the interval is bounded, there can be <strong>infinitely many solutions</strong>. No algorithm can enumerate them all.</p>
+
+  <div class="example-box">
+    <span class="box-label">Example &mdash; Random Search for Roots</span>
+    <p>A simple approach: pick random values of \(x\) in \([a, b]\) and check if \(f(x) = 0\).</p>
+    <ul>
+      <li><strong>Finiteness:</strong> Yes &mdash; we can set a maximum number of random trials, so it always terminates.</li>
+      <li><strong>Correctness/Stability:</strong> No &mdash; each run may find a different root (or none at all). The output is not consistent.</li>
+    </ul>
+    <p>This illustrates the fundamental trade-off: we can guarantee termination, but we lose consistency.</p>
+  </div>
+
+  <h3>What is a Heuristic?</h3>
+
+  <div class="def-box">
+    <span class="box-label">Definition &mdash; Heuristic</span>
+    <p>A <strong>heuristic</strong> is a search method that uses experience, knowledge, or practical rules to find solutions to problems. Unlike a true algorithm, a heuristic does <em>not</em> guarantee that results will be consistent across runs. However, it <em>does</em> guarantee that the program terminates in a reasonable amount of time.</p>
+  </div>
+
+  <div class="why-box">
+    <span class="box-label">Why Heuristics Exist</span>
+    <p>Many real-world problems (especially in AI) are too hard for exact algorithms. Heuristics exist because we need <em>practical</em> solutions. The key insight is a deliberate relaxation:</p>
+    <ul>
+      <li>Instead of requiring an exact solution where \(P(s) = 0\), we accept an approximate solution where \(P(s) \approx 0\).</li>
+      <li>By relaxing from \(=\) to \(\approx\), solutions always exist. The trade-off is that different runs may produce different approximate solutions &mdash; the results are not guaranteed to be stable.</li>
+    </ul>
+    <p>This relaxation is the foundation of optimization in AI. Almost every AI training algorithm is a heuristic that finds "good enough" solutions rather than perfect ones.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 2: BINARY SEARCH -->
+<!-- ============================================================ -->
+<div class="section" id="binary-search">
+  <h2>2. Binary Search for Root Finding</h2>
+
+  <p>Binary search is a method for finding a root of a continuous function \(f\) on an interval \([c, d]\), given that \(f(c)\) and \(f(d)\) have opposite signs (i.e., \(f(c) \cdot f(d) < 0\)). By the Intermediate Value Theorem, there must be at least one point in \([c, d]\) where \(f(x) = 0\).</p>
+
+  <div class="concept-box">
+    <span class="box-label">Concept &mdash; Binary Search for Roots</span>
+    <p>The idea: repeatedly halve the interval. At each step, compute the midpoint and check which half contains the sign change. This narrows down the location of the root.</p>
+  </div>
+
+  <div class="step-box">
+    <span class="box-label">Procedure</span>
+    <ol>
+      <li>Start with interval \([c, d]\) where \(f(c) \cdot f(d) < 0\).</li>
+      <li>Compute the midpoint: \(x = \frac{c + d}{2}\).</li>
+      <li>Evaluate \(f(x)\).</li>
+      <li>If \(f(c) \cdot f(x) < 0\), the root is in \([c, x]\) &mdash; set \(d = x\).</li>
+      <li>If \(f(x) \cdot f(d) < 0\), the root is in \([x, d]\) &mdash; set \(c = x\).</li>
+      <li>Repeat until \(d - c < \varepsilon\) (the interval is small enough).</li>
+    </ol>
+  </div>
+
+  <p>The number of iterations required to reach precision \(\varepsilon\) is:</p>
+
+  <div class="math-block">
+    \[ \text{iterations} = O\!\left(\log_2 \frac{d - c}{\varepsilon}\right) \]
+  </div>
+
+  <div class="why-box">
+    <span class="box-label">Why This Works</span>
+    <p>Each iteration cuts the interval in half, so the interval shrinks exponentially. After \(k\) iterations, the interval width is \(\frac{d-c}{2^k}\). This is both <strong>finite</strong> (it terminates) and <strong>stable</strong> (it always converges to a root in the original interval). Binary search is one of the few methods that is both a proper algorithm and practically useful for root-finding.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 3: OPTIMIZATION REFORMULATION -->
+<!-- ============================================================ -->
+<div class="section" id="optimization-reformulation">
+  <h2>3. General Optimization Reformulation</h2>
+
+  <p>Root-finding (solving \(f(x) = 0\)) can be transformed into an optimization problem. This reformulation is fundamental &mdash; it is how nearly all AI problems are framed.</p>
+
+  <div class="concept-box">
+    <span class="box-label">Concept &mdash; From Root-Finding to Optimization</span>
+    <p>Instead of directly solving \(f(x) = 0\), define a new function:</p>
+  </div>
+
+  <div class="math-block">
+    \[ L(x) = |f(x)| \geq 0 \]
+  </div>
+
+  <p>Notice that \(L(x) = 0\) if and only if \(f(x) = 0\). Also, \(L(x)\) is always non-negative. So finding a root of \(f\) is equivalent to finding the point where \(L(x)\) achieves its minimum value of 0.</p>
+
+  <p>The root-finding problem \(f(x) = 0\) becomes the <strong>optimization problem</strong>:</p>
+
+  <div class="math-block">
+    \[ \min_x L(x) \]
+  </div>
+
+  <div class="why-box">
+    <span class="box-label">Why Reformulate?</span>
+    <p>This reformulation is powerful for two reasons:</p>
+    <ol>
+      <li><strong>Generality:</strong> Many problems that are not root-finding problems can still be written as "minimize some function." Optimization is a universal framework.</li>
+      <li><strong>Graceful failure:</strong> Even if no exact root exists (\(f(x) \neq 0\) for all \(x\)), the optimization version still gives a meaningful answer &mdash; the \(x\) that makes \(L(x)\) as small as possible. This is the "good enough" solution that heuristics aim for.</li>
+    </ol>
+    <p>In AI, the function \(L\) is called the <strong>loss function</strong> (or cost function, or objective function). Training an AI model means minimizing its loss function.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 4: GREEDY SEARCH -->
+<!-- ============================================================ -->
+<div class="section" id="greedy-search">
+  <h2>4. Greedy Search</h2>
+
+  <p>Greedy search is a general-purpose iterative method for minimizing a function when you have no special structure to exploit. It works purely by sampling and comparing.</p>
+
+  <div class="step-box">
+    <span class="box-label">Procedure &mdash; Greedy Search</span>
+    <ol>
+      <li>Pick a random starting point \(x^*\) in the domain. Evaluate \(L(x^*)\).</li>
+      <li>Sample \(N\) random points "near" \(x^*\) (in some neighborhood).</li>
+      <li>Evaluate \(L\) at each of these \(N\) points.</li>
+      <li>If any of the \(N\) points has a lower value of \(L\), update \(x^*\) to that point.</li>
+      <li>Repeat steps 2&ndash;4 until some stopping criterion is met (e.g., a maximum number of iterations \(N_{\max}\)).</li>
+    </ol>
+  </div>
+
+  <p>The computational complexity is \(O(N_{\max}^2)\) &mdash; quadratic in the maximum number of iterations, since each iteration evaluates \(N\) points.</p>
+
+  <div class="important-box">
+    <span class="box-label">Limitations</span>
+    <p>Greedy search has no guarantee of finding the global minimum. It can get stuck in <strong>local minima</strong> &mdash; points that are lower than all nearby points but not the lowest overall. It also has no way to know how close it is to the true minimum. Despite these limitations, greedy search is simple to implement and works as a baseline for harder problems.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 5: NUMERICAL OPTIMIZATION -->
+<!-- ============================================================ -->
+<div class="section" id="numerical-optimization">
+  <h2>5. Numerical Optimization</h2>
+
+  <p>Numerical optimization is the systematic study of how to minimize (or maximize) functions. This is the mathematical core of machine learning and AI.</p>
+
+  <div class="def-box">
+    <span class="box-label">Definition &mdash; Optimization Problem</span>
+    <p>Given a continuous function \(L : \mathbb{R}^n \to \mathbb{R}\) and a domain \(D \subseteq \mathbb{R}^n\), the optimization problem is to find:</p>
+  </div>
+
+  <div class="math-block">
+    \[ x^* = \arg\min_{x \in D} L(x) \]
+  </div>
+
+  <p>This notation means: \(x^*\) is the point in \(D\) where \(L\) achieves its smallest value. The function \(L\) maps \(n\)-dimensional vectors to real numbers. The domain \(D\) specifies which inputs are allowed.</p>
+
+  <div class="concept-box">
+    <span class="box-label">Concept &mdash; Convex Optimization (Preview)</span>
+    <p>If the domain \(D\) is <strong>convex</strong> and the function \(L\) is <strong>convex</strong> (both defined precisely later in this chapter), then the optimization problem has a very special property: any local minimum is automatically the global minimum. This means simple methods like setting the derivative to zero are guaranteed to find the best possible answer. Convex optimization is covered in detail in Section 8.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 6: LINEAR ALGEBRA DEFINITIONS -->
+<!-- ============================================================ -->
+<div class="section" id="linear-algebra">
+  <h2>6. Definitions and Notation (Linear Algebra)</h2>
+
+  <p>Optimization in multiple dimensions requires the language of linear algebra. This section defines the essential objects: vectors, matrices, and their operations.</p>
+
+  <h3>Vectors</h3>
+
+  <div class="def-box">
+    <span class="box-label">Definition &mdash; Vector</span>
+    <p>A <strong>vector</strong> \(\mathbf{x} \in \mathbb{R}^n\) is an ordered list of \(n\) real numbers:</p>
+  </div>
+
+  <div class="math-block">
+    \[ \mathbf{x} = (x_1, x_2, \ldots, x_n) \]
+  </div>
+
+  <div class="why-box">
+    <span class="box-label">Why Vectors Exist in Optimization</span>
+    <p>In optimization, we often need to find the best values for multiple variables simultaneously. A vector is simply a way to package all those variables into one object. Instead of writing "find the best \(x_1\), \(x_2\), \(\ldots\), \(x_n\)," we write "find the best \(\mathbf{x}\)."</p>
+  </div>
+
+  <h4>Vector Operations</h4>
+
+  <p><strong>Vector addition:</strong> Add corresponding components.</p>
+  <div class="math-block">
+    \[ \mathbf{x} + \mathbf{y} = (x_1 + y_1,\; x_2 + y_2,\; \ldots,\; x_n + y_n) \]
+  </div>
+
+  <p><strong>Scalar multiplication:</strong> Multiply every component by a number \(\alpha\).</p>
+  <div class="math-block">
+    \[ \alpha \mathbf{x} = (\alpha x_1,\; \alpha x_2,\; \ldots,\; \alpha x_n) \]
+  </div>
+
+  <p><strong>Dot product (inner product):</strong> Multiply corresponding components and sum them.</p>
+  <div class="math-block">
+    \[ \langle \mathbf{x}, \mathbf{y} \rangle = \sum_{i=1}^{n} x_i y_i = x_1 y_1 + x_2 y_2 + \cdots + x_n y_n \]
+  </div>
+
+  <div class="why-box">
+    <span class="box-label">Why the Dot Product Exists</span>
+    <p>The dot product measures how "aligned" two vectors are. If two vectors point in the same direction, their dot product is large and positive. If they are perpendicular, the dot product is zero. This concept is used extensively in optimization to measure how a function changes along a particular direction (via the gradient, defined later).</p>
+  </div>
+
+  <p><strong>Norm (length):</strong> The Euclidean length of a vector.</p>
+  <div class="math-block">
+    \[ \|\mathbf{x}\| = \sqrt{\sum_{i=1}^{n} x_i^2} = \sqrt{x_1^2 + x_2^2 + \cdots + x_n^2} \]
+  </div>
+
+  <p>The norm measures the "size" or "magnitude" of a vector. Note that \(\|\mathbf{x}\| = \sqrt{\langle \mathbf{x}, \mathbf{x} \rangle}\).</p>
+
+  <h3>Matrices</h3>
+
+  <div class="def-box">
+    <span class="box-label">Definition &mdash; Matrix</span>
+    <p>A <strong>matrix</strong> \(A \in \mathbb{R}^{n \times m}\) is a rectangular array of real numbers with \(n\) rows and \(m\) columns:</p>
+  </div>
+
+  <div class="math-block">
+    \[ A = \begin{bmatrix} a_{11} & a_{12} & \cdots & a_{1m} \\ a_{21} & a_{22} & \cdots & a_{2m} \\ \vdots & \vdots & \ddots & \vdots \\ a_{n1} & a_{n2} & \cdots & a_{nm} \end{bmatrix} \]
+  </div>
+
+  <p>A matrix can be viewed as a collection of column vectors \(A = [\mathbf{A}_{\cdot 1},\; \mathbf{A}_{\cdot 2},\; \ldots,\; \mathbf{A}_{\cdot m}]\), where each \(\mathbf{A}_{\cdot j}\) is a vector in \(\mathbb{R}^n\). Alternatively, it can be viewed as a stack of row vectors.</p>
+
+  <div class="why-box">
+    <span class="box-label">Why Matrices Exist in Optimization</span>
+    <p>Matrices represent <strong>linear transformations</strong> &mdash; operations that take a vector as input and produce another vector as output, while preserving the structure of addition and scalar multiplication. In optimization, matrices appear naturally as the second-order behavior of functions (the Hessian, defined later), and in many AI models (neural network weights are matrices).</p>
+  </div>
+
+  <h4>Matrix Operations</h4>
+
+  <p><strong>Matrix addition:</strong> Add corresponding entries. Both matrices must have the same dimensions.</p>
+  <div class="math-block">
+    \[ (A + B)_{ij} = a_{ij} + b_{ij} \]
+  </div>
+
+  <p><strong>Matrix multiplication:</strong> For \(A \in \mathbb{R}^{n \times k}\) and \(B \in \mathbb{R}^{k \times m}\), the product \(C = A \cdot B \in \mathbb{R}^{n \times m}\) has entries:</p>
+  <div class="math-block">
+    \[ c_{ij} = \sum_{\ell=1}^{k} a_{i\ell} \cdot b_{\ell j} \]
+  </div>
+
+  <p>Each entry \(c_{ij}\) is the dot product of row \(i\) of \(A\) with column \(j\) of \(B\). The inner dimensions must match: if \(A\) is \(n \times k\), then \(B\) must have \(k\) rows.</p>
+
+  <h3>Inverse Matrix</h3>
+
+  <div class="def-box">
+    <span class="box-label">Definition &mdash; Inverse Matrix</span>
+    <p>For a <strong>square</strong> matrix \(A \in \mathbb{R}^{n \times n}\), the <strong>inverse</strong> \(A^{-1}\) is the matrix such that:</p>
+  </div>
+
+  <div class="math-block">
+    \[ A \cdot A^{-1} = A^{-1} \cdot A = I \]
+  </div>
+
+  <p>where \(I\) is the <strong>identity matrix</strong> (1s on the diagonal, 0s elsewhere). The inverse exists if and only if the matrix is <strong>invertible</strong> (also called non-singular).</p>
+
+  <div class="why-box">
+    <span class="box-label">Why Inverses Matter</span>
+    <p>If you have the equation \(A\mathbf{x} = \mathbf{b}\) and you need to solve for \(\mathbf{x}\), the answer is \(\mathbf{x} = A^{-1}\mathbf{b}\) (when the inverse exists). In optimization, solving for the minimum of a quadratic function requires solving a linear system, which involves matrix inverses.</p>
+  </div>
+
+  <h3>Determinant</h3>
+
+  <div class="def-box">
+    <span class="box-label">Definition &mdash; Determinant</span>
+    <p>The <strong>determinant</strong> of a square matrix \(A\), written \(\det(A)\), is a scalar value computed by cofactor expansion:</p>
+  </div>
+
+  <div class="math-block">
+    \[ \det(A) = \sum_{j=1}^{n} a_{ij} \cdot C_{ij} \]
+  </div>
+
+  <p>where \(C_{ij} = (-1)^{i+j} M_{ij}\) is the <strong>cofactor</strong>, and \(M_{ij}\) is the <strong>minor</strong> &mdash; the determinant of the matrix obtained by deleting row \(i\) and column \(j\) from \(A\). This expansion can be done along any row \(i\) or column \(j\).</p>
+
+  <div class="important-box">
+    <span class="box-label">Key Fact</span>
+    <p>A square matrix \(A\) is invertible if and only if \(\det(A) \neq 0\). If \(\det(A) = 0\), the matrix is <strong>singular</strong> and has no inverse.</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 7: GRADIENT AND HESSIAN -->
+<!-- ============================================================ -->
+<div class="section" id="gradient-hessian">
+  <h2>7. Gradient and Hessian</h2>
+
+  <p>The gradient and Hessian are the multi-variable generalizations of the first and second derivatives. They are the primary tools for optimization in multiple dimensions.</p>
+
+  <h3>Gradient</h3>
+
+  <div class="def-box">
+    <span class="box-label">Definition &mdash; Gradient</span>
+    <p>For a function \(f : \mathbb{R}^n \to \mathbb{R}\), the <strong>gradient</strong> \(\nabla f(\mathbf{x})\) is the vector of all partial derivatives:</p>
+  </div>
+
+  <div class="math-block">
+    \[ \nabla f(\mathbf{x}) = \left( \frac{\partial f}{\partial x_1},\; \frac{\partial f}{\partial x_2},\; \ldots,\; \frac{\partial f}{\partial x_n} \right) \]
+  </div>
+
+  <p>Each component \(\frac{\partial f}{\partial x_i}\) tells you how much \(f\) changes when you change \(x_i\) by a small amount, while holding all other variables fixed.</p>
+
+  <div class="why-box">
+    <span class="box-label">Why the Gradient Exists in Optimization</span>
+    <p>The gradient points in the <strong>direction of steepest increase</strong> of the function. If you want to <em>decrease</em> the function as quickly as possible, you move in the <em>opposite</em> direction of the gradient. This is the basis of gradient descent (Section 10).</p>
+    <p>At a minimum, the function is not increasing in any direction, so the gradient must be the zero vector: \(\nabla f(\mathbf{x}^*) = \mathbf{0}\). This is the necessary condition for optimality.</p>
+  </div>
+
+  <h3>Hessian</h3>
+
+  <div class="def-box">
+    <span class="box-label">Definition &mdash; Hessian</span>
+    <p>For a function \(f : \mathbb{R}^n \to \mathbb{R}\), the <strong>Hessian</strong> \(\nabla^2 f(\mathbf{x})\) is the \(n \times n\) matrix of all second partial derivatives:</p>
+  </div>
+
+  <div class="math-block">
+    \[ \nabla^2 f(\mathbf{x}) = \begin{bmatrix} \frac{\partial^2 f}{\partial x_1^2} & \frac{\partial^2 f}{\partial x_1 \partial x_2} & \cdots & \frac{\partial^2 f}{\partial x_1 \partial x_n} \\ \frac{\partial^2 f}{\partial x_2 \partial x_1} & \frac{\partial^2 f}{\partial x_2^2} & \cdots & \frac{\partial^2 f}{\partial x_2 \partial x_n} \\ \vdots & \vdots & \ddots & \vdots \\ \frac{\partial^2 f}{\partial x_n \partial x_1} & \frac{\partial^2 f}{\partial x_n \partial x_2} & \cdots & \frac{\partial^2 f}{\partial x_n^2} \end{bmatrix} \]
+  </div>
+
+  <div class="why-box">
+    <span class="box-label">Why the Hessian Exists in Optimization</span>
+    <p>The Hessian captures how the function <strong>curves</strong> in each direction and in combinations of directions. It tells you whether a critical point (where the gradient is zero) is a minimum, maximum, or saddle point. It is also used to determine whether a function is convex (curves upward everywhere), which is the key property that makes optimization tractable.</p>
+  </div>
+
+  <h3>Worked Example</h3>
+
+  <div class="example-box">
+    <span class="box-label">Example &mdash; Computing Gradient and Hessian</span>
+    <p>Let \(f(x_1, x_2, x_3) = x_1^2 + 2x_2^2 - 5x_3^2 + 3x_1 x_2 - x_1 x_3 + 2x_2 x_3\).</p>
+
+    <p><strong>Gradient:</strong></p>
+    <ul>
+      <li>\(\frac{\partial f}{\partial x_1} = 2x_1 + 3x_2 - x_3\)</li>
+      <li>\(\frac{\partial f}{\partial x_2} = 4x_2 + 3x_1 + 2x_3\)</li>
+      <li>\(\frac{\partial f}{\partial x_3} = -10x_3 - x_1 + 2x_2\)</li>
+    </ul>
+  </div>
+
+  <div class="math-block">
+    \[ \nabla f(\mathbf{x}) = \begin{pmatrix} 2x_1 + 3x_2 - x_3 \\ 3x_1 + 4x_2 + 2x_3 \\ -x_1 + 2x_2 - 10x_3 \end{pmatrix} \]
+  </div>
+
+  <div class="example-box">
+    <span class="box-label">Example &mdash; Hessian (continued)</span>
+    <p><strong>Hessian:</strong> Take the partial derivatives of each gradient component:</p>
+  </div>
+
+  <div class="math-block">
+    \[ \nabla^2 f = \begin{bmatrix} 2 & 3 & -1 \\ 3 & 4 & 2 \\ -1 & 2 & -10 \end{bmatrix} \]
+  </div>
+
+  <p>Notice that the Hessian is a <strong>constant matrix</strong> (it does not depend on \(\mathbf{x}\)). This happens because \(f\) is a quadratic function. Also notice the Hessian is <strong>symmetric</strong> (\(\frac{\partial^2 f}{\partial x_i \partial x_j} = \frac{\partial^2 f}{\partial x_j \partial x_i}\)), which is always the case for smooth functions.</p>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 8: CONVEX OPTIMIZATION -->
+<!-- ============================================================ -->
+<div class="section" id="convex-optimization">
+  <h2>8. Convex Optimization</h2>
+
+  <p>Convex optimization is the class of optimization problems where finding the answer is "easy" in a precise mathematical sense. Understanding convexity is essential because it tells you when simple methods are guaranteed to work.</p>
+
+  <h3>Convex Domain</h3>
+
+  <div class="def-box">
+    <span class="box-label">Definition &mdash; Convex Set</span>
+    <p>A set \(D \subseteq \mathbb{R}^n\) is <strong>convex</strong> if for any two points \(\mathbf{x}, \mathbf{y} \in D\) and any \(\alpha \in [0, 1]\):</p>
+  </div>
+
+  <div class="math-block">
+    \[ \alpha \mathbf{x} + (1 - \alpha) \mathbf{y} \in D \]
+  </div>
+
+  <p>In plain terms: pick any two points in the set. Draw a straight line segment between them. If every point on that line segment is also in the set, then the set is convex. If even one point on the line falls outside the set, it is not convex.</p>
+
+  <h3>Convex Function</h3>
+
+  <div class="def-box">
+    <span class="box-label">Definition &mdash; Convex Function</span>
+    <p>A function \(f : D \to \mathbb{R}\) is <strong>convex</strong> if for any \(\mathbf{x}, \mathbf{y} \in D\) and any \(\alpha \in [0, 1]\):</p>
+  </div>
+
+  <div class="math-block">
+    \[ f\big(\alpha \mathbf{x} + (1 - \alpha) \mathbf{y}\big) \leq \alpha f(\mathbf{x}) + (1 - \alpha) f(\mathbf{y}) \]
+  </div>
+
+  <p>What this says: take any two points and look at the function values at those points. The weighted average of the function values (right side) is always greater than or equal to the function value at the weighted average of the points (left side). Geometrically, the line segment connecting any two points on the graph of \(f\) always lies on or above the graph itself.</p>
+
+  <h3>Why Convexity Matters</h3>
+
+  <div class="important-box">
+    <span class="box-label">The Fundamental Property of Convex Optimization</span>
+    <p>If \(f\) is a convex function defined on a convex domain \(D\), then <strong>every local minimum of \(f\) is also a global minimum</strong>.</p>
+    <p>This means: if you find any point where the function is lower than all nearby points, that point is guaranteed to be the lowest point overall. You cannot get "stuck" at a wrong answer. This is what makes convex optimization tractable &mdash; simple search methods are guaranteed to find the best solution.</p>
+  </div>
+
+  <h3>How to Check Convexity</h3>
+
+  <p>There are two equivalent ways to verify that a function is convex:</p>
+
+  <div class="concept-box">
+    <span class="box-label">Method 1 &mdash; Hessian Test</span>
+    <p>Check that the Hessian matrix \(\nabla^2 f(\mathbf{x})\) is <strong>positive semidefinite</strong> at every point \(\mathbf{x}\) in the domain. A matrix \(H\) is positive semidefinite if:</p>
+  </div>
+
+  <div class="math-block">
+    \[ \mathbf{h}^T \nabla^2 f(\mathbf{x})\; \mathbf{h} \geq 0 \quad \text{for all vectors } \mathbf{h} \]
+  </div>
+
+  <p>This condition says: no matter which direction \(\mathbf{h}\) you look, the function curves upward (or stays flat) in that direction. It never curves downward.</p>
+
+  <div class="concept-box">
+    <span class="box-label">Method 2 &mdash; First-Order Condition (Tangent Inequality)</span>
+    <p>For any points \(\mathbf{x}\) and \(\mathbf{x}_0\) in the domain:</p>
+  </div>
+
+  <div class="math-block">
+    \[ f(\mathbf{x}) \geq \nabla f(\mathbf{x}_0)^T (\mathbf{x} - \mathbf{x}_0) + f(\mathbf{x}_0) \]
+  </div>
+
+  <p>This says: the function always lies on or above its tangent line (or tangent plane in higher dimensions) at every point. The tangent approximation always underestimates the true function value.</p>
+
+  <div class="important-box">
+    <span class="box-label">Theorem &mdash; Equivalence of Convexity Conditions</span>
+    <p>For a twice-differentiable function \(f\), the following are equivalent:</p>
+    <ol>
+      <li>\(f\) is convex (satisfies the definition above)</li>
+      <li>\(f(\mathbf{x}) \geq \nabla f(\mathbf{x}_0)^T(\mathbf{x} - \mathbf{x}_0) + f(\mathbf{x}_0)\) for all \(\mathbf{x}, \mathbf{x}_0\)</li>
+      <li>\(\nabla^2 f(\mathbf{x}) \succeq 0\) (Hessian is positive semidefinite) for all \(\mathbf{x}\)</li>
+    </ol>
+  </div>
+
+  <h3>Solving Convex Optimization Problems</h3>
+
+  <p>Because any local minimum of a convex function is the global minimum, we can find the optimum by setting the gradient to zero:</p>
+
+  <div class="math-block">
+    \[ \nabla f(\mathbf{x}^*) = \mathbf{0} \]
+  </div>
+
+  <p>If the function is convex, any solution to this equation is guaranteed to be the global minimizer. This is much simpler than searching the entire domain.</p>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 9: SPECIAL FUNCTIONS -->
+<!-- ============================================================ -->
+<div class="section" id="special-functions">
+  <h2>9. Special Functions in Convex Optimization</h2>
+
+  <p>Certain function types appear frequently in optimization. Understanding their properties (especially whether they are convex) saves time in practice.</p>
+
+  <h3>Linear Transformation</h3>
+
+  <div class="def-box">
+    <span class="box-label">Definition &mdash; Linear Transformation</span>
+    <p>A linear function from \(\mathbb{R}^n\) to \(\mathbb{R}\) has the form:</p>
+  </div>
+
+  <div class="math-block">
+    \[ f_{\mathbf{a}}(\mathbf{x}) = \mathbf{a}^T \mathbf{x} = \sum_{i=1}^{n} a_i x_i \]
+  </div>
+
+  <p>where \(\mathbf{a} \in \mathbb{R}^n\) is a fixed vector of coefficients.</p>
+
+  <div class="concept-box">
+    <span class="box-label">Properties</span>
+    <ul>
+      <li><strong>Gradient:</strong> \(\nabla f_{\mathbf{a}}(\mathbf{x}) = \mathbf{a}\) (constant &mdash; does not depend on \(\mathbf{x}\)).</li>
+      <li><strong>Hessian:</strong> \(\nabla^2 f_{\mathbf{a}}(\mathbf{x}) = 0\) (the zero matrix).</li>
+      <li><strong>Convexity:</strong> Always convex (the zero matrix is trivially positive semidefinite).</li>
+    </ul>
+  </div>
+
+  <h3>Affine Transformation</h3>
+
+  <div class="def-box">
+    <span class="box-label">Definition &mdash; Affine Transformation</span>
+    <p>An affine function adds a constant to a linear function:</p>
+  </div>
+
+  <div class="math-block">
+    \[ f(\mathbf{x}) = \mathbf{a}^T \mathbf{x} + b \]
+  </div>
+
+  <p>where \(b \in \mathbb{R}\) is a constant. The gradient and Hessian are the same as the linear case (adding a constant does not change derivatives). Affine functions are always convex.</p>
+
+  <h3>Quadratic Form</h3>
+
+  <div class="def-box">
+    <span class="box-label">Definition &mdash; Quadratic Form</span>
+    <p>A <strong>quadratic form</strong> is a function of the form:</p>
+  </div>
+
+  <div class="math-block">
+    \[ f_A(\mathbf{x}) = \mathbf{x}^T A\, \mathbf{x} \]
+  </div>
+
+  <p>where \(A \in \mathbb{R}^{n \times n}\) is a matrix. Expanding this expression:</p>
+
+  <div class="math-block">
+    \[ f_A(\mathbf{x}) = \sum_{i=1}^{n} a_{ii} x_i^2 + \sum_{i \neq j} a_{ij} x_i x_j \]
+  </div>
+
+  <p>which expands to the sum of all squared terms (\(a_{ii}x_i^2\)) and all cross terms (\(a_{ij}x_i x_j\)).</p>
+
+  <h4>Symmetric Representation</h4>
+
+  <p>Every quadratic form can be represented using a <strong>symmetric matrix</strong> \(S\) where \(s_{ij} = s_{ji}\). Given any matrix \(A\), define:</p>
+
+  <div class="math-block">
+    \[ s_{ij} = s_{ji} = \frac{a_{ij} + a_{ji}}{2} \]
+  </div>
+
+  <p>Then \(\mathbf{x}^T A\, \mathbf{x} = \mathbf{x}^T S\, \mathbf{x}\). The symmetric matrix \(S\) is unique &mdash; there is exactly one symmetric matrix that produces the same quadratic form.</p>
+
+  <div class="why-box">
+    <span class="box-label">Why Symmetric Form Matters</span>
+    <p>Using the symmetric representation simplifies analysis. The gradient and Hessian of a quadratic form take clean, simple forms when expressed in terms of the symmetric matrix \(S\).</p>
+  </div>
+
+  <div class="important-box">
+    <span class="box-label">Theorem &mdash; Gradient and Hessian of Quadratic Forms</span>
+    <p>For \(f(\mathbf{x}) = \mathbf{x}^T S\, \mathbf{x}\) with \(S\) symmetric:</p>
+    <ul>
+      <li><strong>Gradient:</strong> \(\nabla f(\mathbf{x}) = 2S\,\mathbf{x}\)</li>
+      <li><strong>Hessian:</strong> \(\nabla^2 f(\mathbf{x}) = 2S\)</li>
+    </ul>
+    <p>The quadratic form is <strong>convex if and only if \(S\) is positive semidefinite</strong> (i.e., \(\mathbf{h}^T S\, \mathbf{h} \geq 0\) for all \(\mathbf{h}\)).</p>
+  </div>
+
+  <p>To find the minimum of a convex quadratic form, set the gradient to zero:</p>
+
+  <div class="math-block">
+    \[ \nabla f(\mathbf{x}^*) = 2S\,\mathbf{x}^* = \mathbf{0} \quad \Rightarrow \quad \mathbf{x}^* = \mathbf{0} \]
+  </div>
+
+  <p>For a pure quadratic form (no linear term), the minimum is always at the origin. For a more general quadratic \(f(\mathbf{x}) = \mathbf{x}^T S\,\mathbf{x} + \mathbf{b}^T \mathbf{x} + c\), setting the gradient to zero gives \(2S\,\mathbf{x}^* + \mathbf{b} = \mathbf{0}\), so \(\mathbf{x}^* = -\frac{1}{2}S^{-1}\mathbf{b}\) (when \(S\) is invertible).</p>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 10: NON-CONVEX OPTIMIZATION -->
+<!-- ============================================================ -->
+<div class="section" id="non-convex">
+  <h2>10. Non-Convex Optimization and Gradient Descent</h2>
+
+  <p>Most functions in AI (particularly in deep learning) are <strong>not convex</strong>. When the objective function is non-convex, we lose the guarantee that any local minimum is the global minimum. The function may have many local minima, and simple methods can get trapped at any of them.</p>
+
+  <div class="why-box">
+    <span class="box-label">Why Non-Convex Optimization Matters</span>
+    <p>Despite the lack of guarantees, we still need to minimize non-convex functions. Neural networks have non-convex loss landscapes, yet gradient-based methods work remarkably well in practice. The key insight: having the gradient gives us <em>directional information</em> that is far more useful than blind random search, even without convexity guarantees.</p>
+  </div>
+
+  <h3>Gradient Descent</h3>
+
+  <div class="def-box">
+    <span class="box-label">Definition &mdash; Gradient Descent (GD)</span>
+    <p><strong>Gradient descent</strong> is an iterative algorithm that updates the current estimate \(\mathbf{x}^*\) by moving in the opposite direction of the gradient:</p>
+  </div>
+
+  <div class="math-block">
+    \[ \mathbf{x}^* \leftarrow \mathbf{x}^* - \alpha \nabla f(\mathbf{x}^*) \]
+  </div>
+
+  <p>where \(\alpha \in (0, 1)\) is the <strong>learning rate</strong> (also called step size).</p>
+
+  <div class="step-box">
+    <span class="box-label">Procedure &mdash; Gradient Descent</span>
+    <ol>
+      <li>Choose a random starting point \(\mathbf{x}^*\) and a learning rate \(\alpha\).</li>
+      <li>Compute the gradient \(\nabla f(\mathbf{x}^*)\).</li>
+      <li>Update: \(\mathbf{x}^* \leftarrow \mathbf{x}^* - \alpha \nabla f(\mathbf{x}^*)\).</li>
+      <li>Repeat steps 2&ndash;3 until the gradient is approximately zero (\(\|\nabla f(\mathbf{x}^*)\| < \varepsilon\)) or a maximum number of iterations is reached.</li>
+    </ol>
+  </div>
+
+  <div class="concept-box">
+    <span class="box-label">Why This Update Rule Works</span>
+    <p>The gradient \(\nabla f(\mathbf{x}^*)\) points in the direction where \(f\) increases most steeply. By subtracting it (moving in the opposite direction), we move toward lower values of \(f\). The learning rate \(\alpha\) controls how large each step is:</p>
+    <ul>
+      <li>If \(\alpha\) is too large, the steps overshoot and the method may diverge.</li>
+      <li>If \(\alpha\) is too small, convergence is very slow.</li>
+      <li>Choosing a good \(\alpha\) is one of the practical challenges of gradient descent.</li>
+    </ul>
+  </div>
+
+  <div class="important-box">
+    <span class="box-label">Key Limitation</span>
+    <p>Gradient descent finds <strong>local optima</strong>, not necessarily the global optimum. For non-convex functions, different starting points may lead to different local minima. This is an inherent limitation &mdash; there is no efficient general method for finding global minima of non-convex functions.</p>
+    <p>However, for convex functions, gradient descent is guaranteed to converge to the global minimum (with appropriate learning rate).</p>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION 11: BRENT'S METHOD -->
+<!-- ============================================================ -->
+<div class="section" id="brents-method">
+  <h2>11. Brent's Method</h2>
+
+  <p>Brent's method is a classical 1D optimization technique that combines the reliability of bracketing methods with the speed of parabolic interpolation.</p>
+
+  <div class="def-box">
+    <span class="box-label">Definition &mdash; Brent's Method (Parabolic Interpolation)</span>
+    <p><strong>Brent's method</strong> approximates the function \(f(x)\) locally by a parabola (quadratic polynomial) that passes through three known points \((a, f(a))\), \((b, f(b))\), and \((c, f(c))\). The minimum of this parabola gives the next estimate for the minimum of \(f\).</p>
+  </div>
+
+  <div class="why-box">
+    <span class="box-label">Why Brent's Method Exists</span>
+    <p>Binary search (Section 2) is reliable but slow &mdash; it only uses sign information. Gradient descent (Section 10) is faster but requires computing derivatives. Brent's method occupies a middle ground: it uses only function values (no derivatives needed) but converges faster than binary search by fitting a parabola to exploit the shape of the function.</p>
+  </div>
+
+  <p>Given three points \(a\), \(b\), \(c\) with known function values \(f(a)\), \(f(b)\), \(f(c)\), the minimum of the interpolating parabola is at:</p>
+
+  <div class="math-block">
+    \[ x = b - \frac{1}{2} \cdot \frac{(b-a)^2 [f(b) - f(c)] - (b-c)^2 [f(b) - f(a)]}{(b-a)[f(b) - f(c)] - (b-c)[f(b) - f(a)]} \]
+  </div>
+
+  <div class="step-box">
+    <span class="box-label">Procedure</span>
+    <ol>
+      <li>Start with three points \(a\), \(b\), \(c\) that bracket the minimum.</li>
+      <li>Compute the parabola minimum \(x\) using the formula above.</li>
+      <li>Evaluate \(f(x)\).</li>
+      <li>Replace the worst of the three points with \(x\) and repeat.</li>
+      <li>If the parabolic step would go outside the bracket, fall back to a bisection step (this is what makes Brent's method robust).</li>
+    </ol>
+  </div>
+
+  <h3>Extension to Multiple Dimensions</h3>
+
+  <p>Brent's method is inherently a 1D method. To use it for multidimensional optimization, you can apply it along <strong>one direction at a time</strong>:</p>
+
+  <ol>
+    <li>Choose a search direction \(\mathbf{d}\) in \(\mathbb{R}^n\).</li>
+    <li>Define the 1D function \(g(t) = f(\mathbf{x} + t\,\mathbf{d})\).</li>
+    <li>Use Brent's method to find \(t^*\) that minimizes \(g(t)\).</li>
+    <li>Update \(\mathbf{x} \leftarrow \mathbf{x} + t^*\,\mathbf{d}\).</li>
+    <li>Choose a new direction \(\mathbf{d}\) and repeat.</li>
+  </ol>
+
+  <p>The choice of search directions \(\mathbf{d}\) at each step determines the efficiency of the overall method. Common strategies include using the coordinate axes (one variable at a time) or using conjugate directions.</p>
+</div>
+
+<!-- ============ CHAPTER NAVIGATION ============ -->
+<div class="chapter-nav">
+  <a href="index.html">
+    <span class="nav-label">Home</span>
+    <span class="nav-title">Table of Contents</span>
+  </a>
+  <a href="chapter2.html" class="next">
+    <span class="nav-label">Next Chapter</span>
+    <span class="nav-title">Chapter 2</span>
+  </a>
+</div>
+
+<div class="footer">
+  <p>Math for AI &mdash; A plain-English course</p>
+</div>
+
+</div><!-- .content -->
+</div><!-- .page-wrapper -->
+
+<!-- Reading progress bar -->
+<script>
+  window.addEventListener('scroll', function() {
+    var winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+    var height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+    var scrolled = (height > 0) ? (winScroll / height) * 100 : 0;
+    document.getElementById('progressBar').style.width = scrolled + '%';
+  });
+</script>
+
+</body>
+</html>

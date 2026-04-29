@@ -1,0 +1,6 @@
+PyTorch accuracy: 1.0000
+Parabolic MLP accuracy: 0.9667
+
+5-fold CV:
+PyTorch MLP:   0.9533 +/- 0.0267
+Parabolic MLP: 0.9267 +/- 0.0490

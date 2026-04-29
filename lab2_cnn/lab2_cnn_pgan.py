@@ -27,6 +27,16 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+# Compat patch: pytorch_GAN_zoo (PGAN) goi optim.Adam voi betas list
+# co the chua mix float/Tensor — PyTorch 2.x reject. Coerce both ve float.
+_orig_adam_init = optim.Adam.__init__
+def _patched_adam_init(self, params, *args, **kwargs):
+    if 'betas' in kwargs and kwargs['betas'] is not None:
+        b = kwargs['betas']
+        kwargs['betas'] = (float(b[0]), float(b[1]))
+    return _orig_adam_init(self, params, *args, **kwargs)
+optim.Adam.__init__ = _patched_adam_init
+
 OUT_DIR     = "output"
 DATA_DIR    = "../data"
 DEVICE      = "cuda" if torch.cuda.is_available() else "cpu"

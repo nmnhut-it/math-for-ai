@@ -1,4 +1,4 @@
-Device: cpu
+Device: cuda
 N_PER_CLASS=10000  EPOCHS=5  BATCH=64  LR=0.001
 
 ============================================================
@@ -24,26 +24,26 @@ Build TinyCNN
 Training
 ============================================================
    Epoch  TrainLoss   TrainAcc    ValLoss     ValAcc
-       1     0.5165     0.7305     0.1946     0.9460
-       2     0.1501     0.9469     0.0952     0.9742
-       3     0.0791     0.9735     0.2412     0.8970
-       4     0.0623     0.9789     0.0723     0.9712
-       5     0.0488     0.9850     0.0409     0.9878
+       1     0.3810     0.8191     0.1174     0.9657
+       2     0.0967     0.9681     0.0787     0.9748
+       3     0.0688     0.9774     0.0722     0.9765
+       4     0.0483     0.9841     0.0565     0.9775
+       5     0.0409     0.9870     0.0631     0.9800
 
-  Best val acc: 0.9878  (saved to output/cnn_best.pth)
+  Best val acc: 0.9800  (saved to output/cnn_best.pth)
 
 ============================================================
 Final evaluation (best checkpoint)
 ============================================================
-  Val accuracy: 0.9878
-  Val loss:     0.0409
+  Val accuracy: 0.9800
+  Val loss:     0.0631
 
   Confusion matrix:
                  pred=real  pred=fake
-    true=real         1972         23
-    true=fake           26       1979
+    true=real         1919         76
+    true=fake            4       2001
 
-    Real recall: 0.9885
-    Fake recall: 0.9870
+    Real recall: 0.9619
+    Fake recall: 0.9980
   Saved output/confusion_matrix.png
   Saved output/dataset.pt for Grad-CAM script

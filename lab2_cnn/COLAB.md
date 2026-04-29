@@ -10,7 +10,7 @@ from google.colab import drive
 drive.mount('/content/drive')
 
 # 2. Clone repo (replace với URL repo của bạn)
-!git clone https://github.com/<YOUR_USERNAME>/math-for-ai.git
+!git clone https://github.com/nmnhut-it/math-for-ai.git
 %cd math-for-ai
 
 # 3. Verify GPU

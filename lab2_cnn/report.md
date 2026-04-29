@@ -129,12 +129,53 @@ CNN hoàn toàn **không được dạy** về Sobel, Laplacian, hay khái niệ
 
 → CNN tự rediscover hand-feature engineering cho đúng vấn đề này. Đây là kết nối thú vị: **convolution học được đóng vai trò cùng loại** với kernel hand-set (Sobel/Laplacian), nhưng tham số được tối ưu bằng gradient descent thay vì đặt sẵn.
 
+### 4.4 Stress test: thử trên PGAN-DTD (kiến trúc GAN khác)
+
+Giả thuyết "CNN nhỏ phân biệt được fake/real bằng noise" liệu còn đúng khi đổi sang một GAN tốt hơn? Train cùng kiểu CNN (4 conv + FC, 128×128 RGB, dropout 0.3) trên 1500 PGAN-DTD fake + 1500 DTD real, 8 epochs, GPU L4 trên Colab.
+
+**Kết quả**: val accuracy chỉ **62.50%** — chỉ hơn random guess 50% một chút.
+
+| Epoch | Train acc | Val acc |
+|---|---|---|
+| 1 | 55.96% | 55.17% |
+| 4 | 61.25% | 59.00% |
+| 8 (best) | 65.38% | **62.50%** |
+
+Confusion matrix trên val 600 ảnh:
+
+|  | pred = real | pred = fake |
+|---|---|---|
+| **true = real** | 213 (TN) | 92 (FP) |
+| **true = fake** | 133 (FN) | 162 (TP) |
+
+- Real recall: **69.84%**
+- Fake recall: **54.92%**
+- False Negative rate: **45.08%** — gần một nửa fake lọt qua detector
+
+**Đối chiếu hand-feature**: trên cùng PGAN-DTD, `Var(Laplacian)` cho Cohen's d = -0.19 (negligible, ngược dấu cGAN). Không phân biệt được.
+
+**Tổng kết stress test**:
+
+| Method | cGAN-MNIST | PGAN-DTD |
+|---|---|---|
+| Hand-feature `Var(Lap)` | d = +1.08 (STRONG) | d = -0.19 (negligible) |
+| CNN (small) | val acc **98.78%** | val acc **62.50%** |
+
+→ **Cả hai phương pháp đều fail trên PGAN-DTD**.
+
+**Lý do**:
+- cGAN dùng MLP thuần (Mirza & Osindero 2014, kiến trúc cũ): mỗi pixel output tính độc lập, để lại jitter pixel-level — **dễ detect**.
+- PGAN dùng nearest-neighbor upsample + conv (Karras et al. 2018, có thiết kế tránh checkerboard): output mượt, không jitter, mode-averaging texture — **khó detect**.
+
+→ Detection difficulty là một hàm của generator architecture sophistication. Modern GAN được thiết kế để **tránh chính những artifact mà classical CV và small CNN dựa vào**. Đây là cuộc chạy đua arms race giữa generator và detector.
+
 ## 5. Hạn chế
 
-1. **Domain narrow**: chỉ test trên cGAN-MNIST. Trên data phức tạp hơn (ảnh chân dung, texture) hoặc GAN khác (StyleGAN, BigGAN) accuracy có thể tụt mạnh — vì failure mode của GAN đó không nhất thiết là noise pixel-level.
+1. **Phụ thuộc kiến trúc GAN**: stress test ở 4.4 cho thấy CNN nhỏ giảm từ 98.78% xuống 62.50% khi đổi từ cGAN-MLP sang PGAN. Phương pháp **không generalize cross-architecture** ở scale CNN này.
 2. **MNIST quá sạch**: ảnh MNIST không có sensor noise, JPEG, nén — nên CNN không phải học phân biệt "noise GAN" với "noise camera". Trên ảnh thực tế, cả 2 cùng là high-freq, CNN cần thêm tín hiệu khác.
 3. **Grad-CAM ở conv2 (resolution 7×7)**: heatmap upsample từ `7×7 → 28×28` mất chi tiết pixel-level, hot spots hơi mờ. Có thể thử Grad-CAM trên `conv1` để có heatmap mịn hơn.
 4. **Không kiểm tra adversarial robustness**: nếu attacker biết CNN này, họ có thể train cGAN với loss thêm penalty trên `Var(Laplacian)` hoặc filter noise sau khi sample → CNN gãy.
+5. **Capacity quá nhỏ cho PGAN-DTD**: 105k tham số (cGAN) hoặc ~700k tham số (PGAN-DTD CNN ở 4.4) có thể không đủ. Literature dùng ResNet-50/EfficientNet pretrained để đạt ~90%+ trên StyleGAN/PGAN. Nhưng đó vượt scope "explain by simple math".
 
 ## 6. Đề xuất phòng chống fake data
 
@@ -151,3 +192,4 @@ Từ kết quả + hạn chế:
 - Grad-CAM cho thấy CNN tự học ra **nhìn vào noise pixel-level** trong ảnh fake — chính là MLP jitter mà giả thuyết ban đầu dự đoán.
 - Toán phía sau (`Conv2d`, `ReLU`, gradient descent, Grad-CAM) đều xây từ các thành phần đã biết (convolution = tổng hợp Sobel/Laplacian; gradient descent = tối ưu hàm khả vi).
 - Phương pháp **explainable AI đơn giản nhất** (Grad-CAM) đủ để mở "hộp đen" và verify CNN học đúng tín hiệu kỳ vọng. Đây là bridge giữa hand-feature engineering và deep learning: cả hai cùng đo một hiện tượng vật lý (high-freq noise từ MLP), chỉ khác cách triển khai.
+- Stress test trên PGAN-DTD cho thấy **detection difficulty là hàm của GAN architecture**: CNN nhỏ tụt từ 98.78% xuống 62.50% khi đổi từ cGAN-MLP sang Progressive GAN. Modern GAN có thiết kế chống lại chính các artifact mà CNN dựa vào.

@@ -1,0 +1,74 @@
+Device: cuda
+N_PER_CLASS=1500  EPOCHS=8  BATCH=32  LR=0.0005  IMG_SIZE=128
+Run on: Google Colab GPU L4 (G4 runtime)
+
+============================================================
+Build PGAN-DTD dataset
+============================================================
+  Loaded PGAN-DTD pretrained (facebookresearch/pytorch_GAN_zoo:hub)
+  Fakes: torch.Size([1500, 3, 128, 128])
+  Reals: torch.Size([1500, 3, 128, 128])  (DTD train+val+test combined)
+  Combined: 3000 images, label: 0=real, 1=fake
+  Train/Val split: 2400/600
+
+============================================================
+Build TexCNN
+============================================================
+  Architecture (input 3x128x128):
+    conv1+pool: 3->16,   128x128 -> 64x64
+    conv2+pool: 16->32,   64x64 -> 32x32
+    conv3+pool: 32->64,   32x32 -> 16x16
+    conv4+pool: 64->64,   16x16 ->  8x8
+    fc1: 64*8*8=4096 -> 128 + dropout(0.3)
+    fc2: 128 -> 2 logits
+
+============================================================
+Training (8 epochs, ~30s on GPU L4)
+============================================================
+  Epoch  TrainLoss  TrainAcc  ValLoss  ValAcc
+       1     0.6843    0.5596   0.6850   0.5517
+       2     0.6787    0.5750   0.6781   0.5883
+       3     0.6675    0.5992   0.6841   0.5733
+       4     0.6606    0.6125   0.6729   0.5900
+       5     0.6515    0.6204   0.6573   0.6067
+       6     0.6493    0.6238   0.6693   0.5833
+       7     0.6309    0.6362   0.6554   0.6200
+       8     0.6163    0.6538   0.6426   0.6250
+
+  Best val acc: 0.6250  (saved to output/cnn_pgan_best.pth)
+
+============================================================
+Final evaluation (best checkpoint)
+============================================================
+  Val accuracy: 0.6250
+  Val loss:     0.6426
+
+  Confusion matrix:
+                 pred=real  pred=fake
+    true=real          213         92
+    true=fake          133        162
+
+    Real recall (TN/(TN+FP)): 0.6984
+    Fake recall (TP/(TP+FN)): 0.5492
+    False Positive rate:      0.3016
+    False Negative rate:      0.4508
+
+============================================================
+KEY FINDING — comparison vs cGAN-MNIST
+============================================================
+  cGAN-MNIST CNN val acc: 0.9878  (very easy task)
+  PGAN-DTD  CNN val acc: 0.6250  (much harder)
+
+  Hand-feature Var(Laplacian) on PGAN-DTD: Cohen's d = -0.19 (negligible)
+  Hand-feature Var(Laplacian) on cGAN-MNIST: Cohen's d = +1.08 (STRONG)
+
+  Interpretation:
+  - cGAN (MLP, Mirza & Osindero 2014): pixel-level jitter from MLP architecture
+    -> trivially detected by both hand-feature and CNN.
+  - PGAN (Progressive GAN, Karras 2018): nearest-neighbor upsampling, explicit
+    anti-checkerboard design, mode-averaged smooth textures
+    -> defeats hand-feature entirely, CNN barely works (62.5% > 50% random).
+
+  Detection difficulty depends on generator architecture sophistication.
+  Modern GANs (StyleGAN, PGAN) are designed to avoid the very artifacts
+  classical CV methods exploit.

@@ -14,18 +14,21 @@ math-for-ai/
 │   ├── report.txt              # written report (Vietnamese)
 │   ├── report.docx
 │   └── report.pdf
-├── lab2/                       # Lab 2 — Gen-AI surveys
-│   ├── lab2.py                 # GAN + Detector + 3 surveys
+├── lab2/                       # Lab 2 — GAN frequency fingerprint
+│   ├── lab2.py                 # 2-experiment FFT analysis
+│   ├── lab2_models.py          # ConditionalGenerator + Discriminator only
 │   ├── report.md               # markdown report (convert via pandoc)
 │   └── output/
-│       ├── G_final.pth         # 60-epoch trained Generator (reusable)
+│       ├── cG_final.pth        # 30-epoch cGAN Generator (reusable)
+│       ├── cD_final.pth
 │       ├── results.txt
-│       ├── gan_samples.png
-│       ├── survey1_latent_walk.png       # latent space walk
-│       ├── survey1_smoothness.png
-│       ├── survey2_saliency.png          # detector saliency map
-│       ├── survey3_attack_curve.png      # PGD attack curve
-│       └── survey3_saliency_change.png
+│       ├── exp1_cgan_samples.png   # in-house cGAN-MNIST samples
+│       ├── exp1_mnist_samples.png
+│       ├── exp1_fft.png            # FFT panels: real, fake, diff
+│       ├── exp2_pgan_samples.png   # open-weight PGAN-DTD samples
+│       ├── exp2_dtd_samples.png
+│       ├── exp2_fft.png
+│       └── combined_radial.png     # ⭐ key chart: radial freq profile both exps
 ├── reference/                  # Course materials
 │   ├── make_reference.py       # build reference.docx for pandoc styling
 │   └── chapters/               # AI Security textbook PDFs
@@ -43,21 +46,36 @@ cd lab1 && python lab1.py
 
 Runs three sections: PyTorch SGD MLP, NumPy MLP with parabolic coordinate descent (no gradients), and 5-fold CV comparison. Requires `numpy`, `torch`, `scikit-learn`.
 
-## Lab 2 — Generative AI Surveys
+## Lab 2 — GAN Frequency Fingerprint
 
 ```bash
 cd lab2 && python lab2.py
 ```
 
-Loads `output/G_final.pth` (cached 60-epoch GAN checkpoint) — skips training if it exists. Otherwise trains from scratch (~10 min CPU). Then trains a CNN detector and runs three surveys:
+**Câu hỏi:** GAN có để lại "dấu vân tay" tần số có thể dùng để detect ảnh fake không?
 
-1. **Latent Space Walk** — Linear vs SLERP interpolation in $\mathbb{R}^{100}$, measures pixel-level smoothness
-2. **Saliency Map** — input-gradient saliency on detector for real vs fake images
-3. **PGD Attack + Saliency Change** — adversarial robustness curve, perturbation-saliency correlation
+Hai thí nghiệm song song trên 2 dataset khác nhau, để xem fingerprint là **chung** (generalize) hay chỉ là artifact của 1 model cụ thể:
 
-Run from inside `lab2/` directory (uses `../data` for MNIST cache, `output/` for outputs).
+1. **Thí nghiệm 1 (in-house)** — Conditional GAN (Mirza & Osindero 2014), MLP arch, train 30 epoch trên MNIST. Reals: MNIST 28×28 grayscale. Checkpoint cached tại `output/cG_final.pth`.
+2. **Thí nghiệm 2 (open-weight)** — Progressive GAN (Karras et al. 2018) pretrained trên DTD textures, load qua `torch.hub.load('facebookresearch/pytorch_GAN_zoo:hub', 'PGAN', 'DTD')`. Reals: DTD (Cimpoi et al. 2014) 128×128, convert sang grayscale.
+
+Mỗi thí nghiệm: lấy 1024 fake + 1024 real, tính `mean log|FFT2|` spectrum trên cả 2, plot radial frequency profile để so sánh.
+
+Run từ trong `lab2/` directory (uses `../data` for MNIST/DTD cache).
 
 Requires `numpy`, `torch`, `torchvision`, `matplotlib`.
+
+## Lab 2 — Report Writing Flow
+
+`report.md` phải đi theo trình tự **quan sát → động cơ → thí nghiệm**, không phải "thí nghiệm trước rồi giải thích":
+
+1. **Sample + latent walk của cả 2 model** (cGAN-MNIST + PGAN-DTD) — show ảnh fake nhìn ra sao, kèm latent walk verify model hoạt động
+2. **Quan sát: real vs fake side-by-side** — chỉ rõ điểm khác biệt thị giác (hoặc nói rõ "không thấy khác biệt rõ ràng" nếu vậy)
+3. **Lí giải tại sao dùng FFT** — từ quan sát ở bước 2, dẫn ra động cơ chuyển sang frequency domain (vì pixel-domain không lộ ra fingerprint rõ rệt; vì upsampling artifacts được nghiên cứu nhiều ở freq)
+4. **Thí nghiệm FFT** — radial profile + diff spectrum, so sánh 2 thí nghiệm
+5. **Kết luận + đề xuất phòng chống**
+
+KHÔNG mở đầu báo cáo bằng FFT thẳng. Phải có chuỗi suy luận dẫn người đọc đến FFT.
 
 ## Markdown → DOCX Workflow
 
@@ -85,11 +103,9 @@ Pure static HTML, no build step. 5 chapters covering math foundations, optimizat
 
 `lab1.py` — three self-contained sections; NumPy MLP uses column-major convention (`W @ X.T`).
 
-`lab2.py` — five phases:
-1. Phase 0: Load checkpoint (or train) Generator
-2. Phase 1: Train CNN Detector on real vs GAN-generated MNIST
-3. Survey 1: Latent walk (linear + SLERP)
-4. Survey 2: Saliency map computation
-5. Survey 3: PGD attack at multiple ε levels + saliency comparison
+`lab2.py` — 2 experiments + combined plot:
+1. **Thí nghiệm 1**: train/load cGAN trên MNIST, sample 1024 fakes, lấy 1024 MNIST reals, compute FFT spectrum + radial profile
+2. **Thí nghiệm 2**: load PGAN-DTD pretrained, sample 1024 fakes, lấy 1024 DTD reals (resize 128×128, RGB→grayscale), compute FFT spectrum + radial profile
+3. Combined: 2-panel plot radial profile của cả 2 thí nghiệm
 
-Constants at top of file: `Z_DIM=100`, `BATCH_SIZE=256`, `LR=2e-4`, `BETA1=0.5`. PGD uses 20 steps, `α = ε/8`. All outputs go to `output/results.txt` and `output/*.png`.
+Constants: `Z_DIM=100`, `BATCH_SIZE=256`, `GAN_EPOCHS=30`, `N_SAMPLES=1024`. Helpers: `rgb_to_gray` (BT.601 luminance), `avg_log_fft`, `radial_profile`, `plot_fft_panels`. cGAN models tại `lab2_models.py` (chỉ Generator + Discriminator, không có classifier/detector).

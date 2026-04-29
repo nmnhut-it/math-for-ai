@@ -37,5 +37,5 @@ for style in doc.styles:
         style.font.name = CODE_FONT
         style.font.size = Pt(10)
 
-doc.save("D:/math-for-ai/reference.docx")
+doc.save("D:/math-for-ai/reference/reference.docx")
 print("Done")

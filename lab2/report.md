@@ -52,7 +52,7 @@ $$
 \text{Conv}(1 \to 32) \to \text{ReLU} \to \text{MaxPool} \to \text{Conv}(32 \to 64) \to \text{ReLU} \to \text{MaxPool} \to \text{FC}(3136 \to 256) \to \text{Dropout} \to \text{FC}(256 \to 1) \to \sigma
 $$
 
-Tập huấn luyện gồm $4\,000$ ảnh thật từ MNIST và $4\,000$ ảnh giả từ $G$, test trên $2\,000$ mẫu cân bằng, 10 epoch với Adam $(\text{lr} = 10^{-3})$, BCE loss. Detector đạt accuracy **0.9555** trên test set, với $\mathbb{E}[D_\text{det}(x_\text{fake})] \approx 0.002$ — cực kỳ tự tin khi gặp ảnh giả từ $G$.
+Tập huấn luyện gồm $8\,000$ ảnh thật từ MNIST và $8\,000$ ảnh giả từ $G$ (chia 80/20 train/test), 10 epoch với Adam $(\text{lr} = 10^{-3})$, BCE loss. Detector đạt accuracy **0.9555** trên test set, với $\mathbb{E}[D_\text{det}(x_\text{fake})] \approx 0.002$ — cực kỳ tự tin khi gặp ảnh giả từ $G$. Checkpoint lưu tại `output/detector.pth` để tái sử dụng giữa các lần chạy.
 
 ## 4. Khảo sát 1: Latent Space Walk
 

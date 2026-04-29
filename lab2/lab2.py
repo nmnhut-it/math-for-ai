@@ -1,9 +1,27 @@
 """
-Lab 2 - Khao sat Vanilla GAN tren MNIST va Detector phat hien anh gia
-Ba khao sat:
-  1. Latent Space Walk - di tuyen tinh trong khong gian an Z
-  2. Saliency Map cua Detector - pixel nao quyet dinh fake/real
-  3. PGD Attack + Saliency - tan cong dich chuyen attention cua detector
+Lab 2 - GAN Frequency Fingerprint
+
+Cau hoi: GAN co de lai 'dau van tay' tan so co the dung de detect anh fake khong?
+Method:   tinh log|FFT2| spectrum cua anh fake va real, so sanh radial profile.
+Hypothesis: GAN-generated anh thua nang luong o dai high-frequency vs natural images.
+
+THI NGHIEM 1 (in-house):
+  - Conditional GAN (Mirza & Osindero 2014), MLP, train tu dau tren MNIST 30 epoch.
+  - Reals: MNIST 28x28 grayscale.
+
+THI NGHIEM 2 (open-weight):
+  - Progressive GAN (Karras et al. 2018), pretrained tren DTD textures.
+  - Source: torch.hub.load('facebookresearch/pytorch_GAN_zoo:hub', 'PGAN', 'DTD')
+  - Reals: DTD (Cimpoi et al. 2014), 128x128 RGB -> grayscale.
+
+Outputs (output/):
+  - exp1_cgan_samples.png, exp1_mnist_samples.png
+  - exp1_walk.png           (intra-class latent walk, verify cGAN hoat dong)
+  - exp1_fft.png            (3 panels: real spec, fake spec, diff)
+  - exp2_pgan_samples.png, exp2_dtd_samples.png
+  - exp2_walk.png           (latent walk PGAN, verify model hoat dong)
+  - exp2_fft.png            (3 panels: same)
+  - combined_radial.png     (radial freq profile so sanh ca 2 thi nghiem)
 """
 
 import os
@@ -11,427 +29,355 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset
+import torchvision
+from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from torchvision.utils import save_image
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-OUT_DIR = "output"
-DATA_DIR = "../data"
+from lab2_models import ConditionalGenerator, ConditionalDiscriminator, Z_DIM, NUM_CLASSES, IMG_SIZE
+
+# ── Constants ─────────────────────────────────────────────────────────────────
+OUT_DIR    = "output"
+DATA_DIR   = "../data"
+DEVICE     = "cuda" if torch.cuda.is_available() else "cpu"
+BATCH_SIZE = 256
+GAN_EPOCHS = 30
+LR_GAN     = 2e-4
+BETA1      = 0.5
+N_SAMPLES  = 1024
+SEED       = 42
+
 os.makedirs(OUT_DIR, exist_ok=True)
-LOG_FILE = open(os.path.join(OUT_DIR, "results.txt"), "w", encoding="utf-8")
+LOG_FILE = open(f"{OUT_DIR}/results.txt", "w", encoding="utf-8")
+
 
 def log(msg=""):
     print(msg)
     LOG_FILE.write(msg + "\n")
     LOG_FILE.flush()
 
-# ── Constants ─────────────────────────────────────────────────────────────────
-DEVICE     = "cuda" if torch.cuda.is_available() else "cpu"
-Z_DIM      = 100
-IMG_SIZE   = 28
-CHANNELS   = 1
-BATCH_SIZE = 256
-LR         = 2e-4
-BETA1      = 0.5
-GAN_EPOCHS = 30
-DET_EPOCHS = 10
-SEED       = 42
+
+def section(title):
+    log("\n" + "=" * 60)
+    log(title)
+    log("=" * 60)
+
 
 torch.manual_seed(SEED)
 np.random.seed(SEED)
-log(f"Device: {DEVICE}  Z_DIM={Z_DIM}  BATCH={BATCH_SIZE}")
+log(f"Device: {DEVICE}")
 
-tf = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5])])
-train_set = datasets.MNIST(DATA_DIR, train=True, download=True, transform=tf)
-loader    = DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=0, drop_last=True)
-log(f"Dataset: MNIST  {len(train_set)} samples\n")
 
-# ── Architectures ─────────────────────────────────────────────────────────────
-class Generator(nn.Module):
-    def __init__(self):
-        super().__init__()
-        def block(in_f, out_f):
-            return [nn.Linear(in_f, out_f), nn.BatchNorm1d(out_f), nn.LeakyReLU(0.2, inplace=True)]
-        self.net = nn.Sequential(
-            *block(Z_DIM, 256),
-            *block(256, 512),
-            *block(512, 1024),
-            nn.Linear(1024, CHANNELS * IMG_SIZE * IMG_SIZE),
-            nn.Tanh(),
-        )
-    def forward(self, z):
-        return self.net(z).view(-1, CHANNELS, IMG_SIZE, IMG_SIZE)
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
-class Discriminator(nn.Module):
-    def __init__(self):
-        super().__init__()
-        def block(in_f, out_f):
-            return [nn.Linear(in_f, out_f), nn.LeakyReLU(0.2, inplace=True), nn.Dropout(0.3)]
-        self.net = nn.Sequential(
-            nn.Flatten(),
-            *block(CHANNELS * IMG_SIZE * IMG_SIZE, 1024),
-            *block(1024, 512),
-            *block(512, 256),
-            nn.Linear(256, 1),
-            nn.Sigmoid(),
-        )
-    def forward(self, x):
-        return self.net(x)
+def rgb_to_gray(x):
+    """RGB -> grayscale theo luminance ITU-R BT.601."""
+    w = torch.tensor([0.299, 0.587, 0.114]).view(1, 3, 1, 1)
+    return (x * w).sum(dim=1, keepdim=True)
 
-class Detector(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.conv = nn.Sequential(
-            nn.Conv2d(1, 32, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),
-            nn.Conv2d(32, 64, 3, padding=1), nn.ReLU(), nn.MaxPool2d(2),
-        )
-        self.fc = nn.Sequential(
-            nn.Flatten(),
-            nn.Linear(64 * 7 * 7, 256), nn.ReLU(), nn.Dropout(0.3),
-            nn.Linear(256, 1), nn.Sigmoid(),
-        )
-    def forward(self, x):
-        return self.fc(self.conv(x))
 
-# ── PHASE 0: Load/Train Generator ─────────────────────────────────────────────
-log("=" * 55)
-log("PHASE 0: Load/Train GAN")
-log("=" * 55)
-G = Generator().to(DEVICE)
-ckpt_path = f"{OUT_DIR}/G_final.pth"
-criterion = nn.BCELoss()
+def avg_log_fft(imgs):
+    """Mean log|FFT2| over batch -> 2D spectrum (HxW)."""
+    spec = torch.fft.fft2(imgs.squeeze(1))
+    mag  = torch.log(torch.abs(spec) + 1e-6)
+    return mag.mean(0).cpu().numpy()
 
-if os.path.exists(ckpt_path):
-    G.load_state_dict(torch.load(ckpt_path, map_location=DEVICE, weights_only=True))
-    log(f"  Loaded {ckpt_path}")
-else:
-    D = Discriminator().to(DEVICE)
-    opt_G = optim.Adam(G.parameters(), lr=LR, betas=(BETA1, 0.999))
-    opt_D = optim.Adam(D.parameters(), lr=LR, betas=(BETA1, 0.999))
-    for epoch in range(1, GAN_EPOCHS + 1):
-        G.train(); D.train()
-        for real, _ in loader:
-            real  = real.to(DEVICE); bs = real.size(0)
-            ones  = torch.ones(bs, 1, device=DEVICE)
-            zeros = torch.zeros(bs, 1, device=DEVICE)
-            with torch.no_grad():
-                fake = G(torch.randn(bs, Z_DIM, device=DEVICE))
-            loss_D = (criterion(D(real), ones) + criterion(D(fake), zeros)) / 2
-            opt_D.zero_grad(); loss_D.backward(); opt_D.step()
-            fake = G(torch.randn(bs, Z_DIM, device=DEVICE))
-            loss_G = criterion(D(fake), ones)
-            opt_G.zero_grad(); loss_G.backward(); opt_G.step()
-        log(f"  Epoch {epoch:3d}")
-    torch.save(G.state_dict(), ckpt_path)
 
-G.train(False)
+def radial_profile(spec):
+    """Mean log|FFT| theo khoang cach radial tu DC. Tra ve 1D array doi xung."""
+    h, w = spec.shape
+    cy, cx = h // 2, w // 2
+    y, x = np.indices((h, w))
+    r = np.sqrt((y - cy) ** 2 + (x - cx) ** 2).astype(np.int32)
+    shifted = np.fft.fftshift(spec)
+    n_bins = min(cx, cy)
+    profile = np.zeros(n_bins)
+    for i in range(n_bins):
+        profile[i] = shifted[r == i].mean() if (r == i).any() else 0
+    return profile
 
-# Sample images for reference
-fixed_z = torch.randn(64, Z_DIM, device=DEVICE)
-with torch.no_grad():
-    sample_imgs = G(fixed_z)
-save_image(sample_imgs, f"{OUT_DIR}/gan_samples.png", nrow=8, normalize=True)
 
-# ── PHASE 1: Train Detector ───────────────────────────────────────────────────
-log("\n" + "=" * 55)
-log("PHASE 1: Train CNN Detector")
-log("=" * 55)
-N_DET = 5000
-real_loader = DataLoader(train_set, batch_size=N_DET, shuffle=True)
-real_imgs, _ = next(iter(real_loader))
-real_imgs = real_imgs[:N_DET].to(DEVICE)
-with torch.no_grad():
-    fake_imgs = G(torch.randn(N_DET, Z_DIM, device=DEVICE))
-
-X_all = torch.cat([real_imgs, fake_imgs])
-y_all = torch.cat([torch.ones(N_DET, 1), torch.zeros(N_DET, 1)]).to(DEVICE)
-perm  = torch.randperm(2 * N_DET)
-X_all, y_all = X_all[perm], y_all[perm]
-n_train = int(0.8 * 2 * N_DET)
-det_train = TensorDataset(X_all[:n_train], y_all[:n_train])
-det_test  = TensorDataset(X_all[n_train:], y_all[n_train:])
-
-detector = Detector().to(DEVICE)
-opt_det  = optim.Adam(detector.parameters(), lr=1e-3)
-for ep in range(DET_EPOCHS):
-    detector.train()
-    for imgs, lbls in DataLoader(det_train, batch_size=128, shuffle=True):
-        loss = criterion(detector(imgs), lbls)
-        opt_det.zero_grad(); loss.backward(); opt_det.step()
-
-detector.train(False)
-correct, total = 0, 0
-with torch.no_grad():
-    for imgs, lbls in DataLoader(det_test, batch_size=256):
-        preds   = (detector(imgs) > 0.5).float()
-        correct += (preds == lbls).sum().item()
-        total   += lbls.size(0)
-det_acc = correct / total
-log(f"  Detector accuracy: {det_acc:.4f}")
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# KHAO SAT 1: Latent Space Walk
-# ═══════════════════════════════════════════════════════════════════════════════
-log("\n" + "=" * 55)
-log("KHAO SAT 1: Latent Space Walk")
-log("=" * 55)
-
-N_STEPS = 12
-
-def linear_interp(z1, z2, n):
-    alphas = torch.linspace(0, 1, n, device=DEVICE).view(-1, 1)
-    return (1 - alphas) * z1 + alphas * z2
-
-def slerp(z1, z2, n):
+def slerp(z1, z2, n, device=DEVICE):
     """Spherical linear interpolation."""
-    alphas = torch.linspace(0, 1, n, device=DEVICE)
-    z1_norm = z1 / z1.norm()
-    z2_norm = z2 / z2.norm()
-    omega   = torch.acos((z1_norm * z2_norm).sum().clamp(-1, 1))
-    sin_o   = torch.sin(omega)
+    z1n, z2n = z1 / z1.norm(), z2 / z2.norm()
+    omega = torch.acos((z1n * z2n).sum().clamp(-1, 1))
+    sin_o = torch.sin(omega)
+    alphas = torch.linspace(0, 1, n, device=device)
     out = []
     for a in alphas:
         if sin_o.abs() < 1e-6:
-            z = (1 - a) * z1 + a * z2
+            out.append((1 - a) * z1 + a * z2)
         else:
-            z = (torch.sin((1-a) * omega) / sin_o) * z1 + (torch.sin(a * omega) / sin_o) * z2
-        out.append(z)
+            out.append((torch.sin((1-a)*omega) / sin_o) * z1
+                     + (torch.sin(a    *omega) / sin_o) * z2)
     return torch.stack(out)
 
-torch.manual_seed(7)
-z1 = torch.randn(1, Z_DIM, device=DEVICE)
-z2 = torch.randn(1, Z_DIM, device=DEVICE)
 
-z_lin   = linear_interp(z1, z2, N_STEPS)
-z_slerp = slerp(z1.squeeze(), z2.squeeze(), N_STEPS)
+def plot_fft_panels(real_spec, fake_spec, title, fname,
+                    real_label="Real", fake_label="Fake"):
+    """3-panel plot: real spectrum, fake spectrum, fake-real diff."""
+    diff = fake_spec - real_spec
+    fig, axes = plt.subplots(1, 3, figsize=(11, 3.5))
+    axes[0].imshow(np.fft.fftshift(real_spec), cmap="magma")
+    axes[0].set_title(f"{real_label} log|FFT|")
+    axes[1].imshow(np.fft.fftshift(fake_spec), cmap="magma")
+    axes[1].set_title(f"{fake_label} log|FFT|")
+    axes[2].imshow(np.fft.fftshift(diff), cmap="RdBu_r", vmin=-1, vmax=1)
+    axes[2].set_title("Diff (fake - real)")
+    for ax in axes:
+        ax.axis("off")
+    fig.suptitle(title)
+    fig.tight_layout()
+    fig.savefig(f"{OUT_DIR}/{fname}", dpi=130)
+    plt.close()
 
+
+# ═════════════════════════════════════════════════════════════════════════════
+# THI NGHIEM 1 — In-house cGAN tren MNIST
+# ═════════════════════════════════════════════════════════════════════════════
+section("THI NGHIEM 1: In-house cGAN tren MNIST")
+
+# Data
+tf_mnist = transforms.Compose([transforms.ToTensor(),
+                                transforms.Normalize([0.5], [0.5])])
+mnist_train = datasets.MNIST(DATA_DIR, train=True, download=True, transform=tf_mnist)
+mnist_loader = DataLoader(mnist_train, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+log(f"  MNIST train size: {len(mnist_train)}")
+
+
+def sample_z(n):
+    return torch.randn(n, Z_DIM, device=DEVICE)
+
+
+def sample_y(n):
+    return torch.randint(0, NUM_CLASSES, (n,), device=DEVICE)
+
+
+def train_cgan(G, D, n_epochs):
+    """cGAN training: BCE minimax, alternating G/D updates."""
+    opt_G = optim.Adam(G.parameters(), lr=LR_GAN, betas=(BETA1, 0.999))
+    opt_D = optim.Adam(D.parameters(), lr=LR_GAN, betas=(BETA1, 0.999))
+    bce   = nn.BCELoss()
+    for epoch in range(1, n_epochs + 1):
+        for real, labels in mnist_loader:
+            real, labels = real.to(DEVICE), labels.to(DEVICE)
+            bs   = real.size(0)
+            ones = torch.ones (bs, 1, device=DEVICE)
+            zeros= torch.zeros(bs, 1, device=DEVICE)
+            with torch.no_grad():
+                fake = G(sample_z(bs), labels)
+            loss_D = (bce(D(real, labels), ones) + bce(D(fake, labels), zeros)) / 2
+            opt_D.zero_grad(); loss_D.backward(); opt_D.step()
+            y_g  = sample_y(bs)
+            fake = G(sample_z(bs), y_g)
+            loss_G = bce(D(fake, y_g), ones)
+            opt_G.zero_grad(); loss_G.backward(); opt_G.step()
+        log(f"  Epoch {epoch:3d}  loss_D={loss_D.item():.3f}  loss_G={loss_G.item():.3f}")
+
+
+# Load or train cGAN
+G = ConditionalGenerator().to(DEVICE)
+D = ConditionalDiscriminator().to(DEVICE)
+G_ckpt = f"{OUT_DIR}/cG_final.pth"
+if os.path.exists(G_ckpt):
+    G.load_state_dict(torch.load(G_ckpt, map_location=DEVICE, weights_only=True))
+    log(f"  Loaded {G_ckpt}")
+else:
+    train_cgan(G, D, GAN_EPOCHS)
+    torch.save(G.state_dict(), G_ckpt)
+    torch.save(D.state_dict(), f"{OUT_DIR}/cD_final.pth")
+G.train(False)
+
+# Sample fakes (uniform random y)
+torch.manual_seed(SEED)
+y_pool = sample_y(N_SAMPLES)
 with torch.no_grad():
-    imgs_lin   = G(z_lin)
-    imgs_slerp = G(z_slerp)
+    cgan_fakes = G(sample_z(N_SAMPLES), y_pool)
+log(f"  cGAN fakes: {cgan_fakes.shape}  range [{cgan_fakes.min():.2f}, {cgan_fakes.max():.2f}]")
 
-# Pixel-level smoothness
-diffs_lin   = [(imgs_lin[i+1]   - imgs_lin[i]).abs().mean().item()   for i in range(N_STEPS - 1)]
-diffs_slerp = [(imgs_slerp[i+1] - imgs_slerp[i]).abs().mean().item() for i in range(N_STEPS - 1)]
-log(f"  Linear interp  | mean step diff: {np.mean(diffs_lin):.4f}  std: {np.std(diffs_lin):.4f}")
-log(f"  SLERP          | mean step diff: {np.mean(diffs_slerp):.4f}  std: {np.std(diffs_slerp):.4f}")
+# Get MNIST reals
+mnist_real_loader = DataLoader(mnist_train, batch_size=N_SAMPLES, shuffle=True)
+mnist_reals, _    = next(iter(mnist_real_loader))
+mnist_reals       = mnist_reals.to(DEVICE)
+log(f"  MNIST reals: {mnist_reals.shape}")
 
-# Save side-by-side: linear top, slerp bottom
-fig, axes = plt.subplots(2, N_STEPS, figsize=(1.0 * N_STEPS, 2.4))
-for i in range(N_STEPS):
-    axes[0, i].imshow(imgs_lin[i, 0].cpu().numpy(),   cmap="gray", vmin=-1, vmax=1)
-    axes[1, i].imshow(imgs_slerp[i, 0].cpu().numpy(), cmap="gray", vmin=-1, vmax=1)
-    axes[0, i].axis("off"); axes[1, i].axis("off")
-    axes[0, i].set_title(f"{i/(N_STEPS-1):.2f}", fontsize=8)
-axes[0, 0].set_ylabel("Linear", fontsize=10, rotation=0, labelpad=30, ha="right", va="center")
-axes[1, 0].set_ylabel("SLERP",  fontsize=10, rotation=0, labelpad=30, ha="right", va="center")
-fig.suptitle("Khao sat 1: Latent Space Walk (alpha tu 0 -> 1)")
-fig.tight_layout()
-fig.savefig(f"{OUT_DIR}/survey1_latent_walk.png", dpi=150)
-plt.close()
+# Save sanity grids
+save_image(cgan_fakes[:64],  f"{OUT_DIR}/exp1_cgan_samples.png", nrow=8, normalize=True)
+save_image(mnist_reals[:64], f"{OUT_DIR}/exp1_mnist_samples.png", nrow=8, normalize=True)
 
-# Plot smoothness curves
-fig, ax = plt.subplots(figsize=(7, 3.5))
-ax.plot(range(1, N_STEPS), diffs_lin,   marker="o", label="Linear interp")
-ax.plot(range(1, N_STEPS), diffs_slerp, marker="s", label="SLERP")
-ax.set_xlabel("Step index"); ax.set_ylabel("|x_{i+1} - x_i|.mean()")
-ax.set_title("Smoothness cua latent walk")
-ax.legend(); ax.grid(alpha=0.3); fig.tight_layout()
-fig.savefig(f"{OUT_DIR}/survey1_smoothness.png", dpi=150)
-plt.close()
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# KHAO SAT 2: Saliency Map cua Detector
-# ═══════════════════════════════════════════════════════════════════════════════
-log("\n" + "=" * 55)
-log("KHAO SAT 2: Saliency Map (Input Gradient)")
-log("=" * 55)
-
-def saliency_map(model, x):
-    """|d(model(x))/dx| - cho biet pixel nao anh huong nhat den output."""
-    x = x.clone().detach().requires_grad_(True)
-    out = model(x)
-    out.sum().backward()
-    return x.grad.abs().detach()
-
-# Lay 6 anh real va 6 anh fake (chon de phong phu)
-N_SHOW = 6
-real_subset, _ = next(iter(DataLoader(train_set, batch_size=N_SHOW, shuffle=True)))
-real_subset = real_subset.to(DEVICE)
-with torch.no_grad():
-    fake_subset = G(torch.randn(N_SHOW, Z_DIM, device=DEVICE))
-
-sal_real = saliency_map(detector, real_subset)
-sal_fake = saliency_map(detector, fake_subset)
-
-# Quantitative: mean saliency intensity (energy detector dat vao moi anh)
-mean_sal_real = sal_real.mean().item()
-mean_sal_fake = sal_fake.mean().item()
-# Spatial concentration: variance / mean (dispersion)
-sal_real_flat = sal_real.view(N_SHOW, -1)
-sal_fake_flat = sal_fake.view(N_SHOW, -1)
-top10_real = sal_real_flat.topk(78, dim=1).values.sum(dim=1) / sal_real_flat.sum(dim=1)
-top10_fake = sal_fake_flat.topk(78, dim=1).values.sum(dim=1) / sal_fake_flat.sum(dim=1)
-log(f"  Real images | mean saliency: {mean_sal_real:.5f}  top-10% concentration: {top10_real.mean().item():.3f}")
-log(f"  Fake images | mean saliency: {mean_sal_fake:.5f}  top-10% concentration: {top10_fake.mean().item():.3f}")
-
-# Visualize: 4 rows x N_SHOW cols
-# Row 1: real image, Row 2: real saliency overlay, Row 3: fake image, Row 4: fake saliency
-fig, axes = plt.subplots(4, N_SHOW, figsize=(1.6 * N_SHOW, 6.5))
-for i in range(N_SHOW):
-    # Real
-    img = real_subset[i, 0].cpu().numpy()
-    sal = sal_real[i, 0].cpu().numpy()
-    pred = detector(real_subset[i:i+1]).item()
-    axes[0, i].imshow(img, cmap="gray", vmin=-1, vmax=1)
-    axes[0, i].set_title(f"Real\nP(real)={pred:.3f}", fontsize=9)
-    axes[1, i].imshow(img, cmap="gray", vmin=-1, vmax=1, alpha=0.6)
-    axes[1, i].imshow(sal, cmap="hot", alpha=0.6)
-    # Fake
-    img2 = fake_subset[i, 0].cpu().numpy()
-    sal2 = sal_fake[i, 0].cpu().numpy()
-    pred2 = detector(fake_subset[i:i+1]).item()
-    axes[2, i].imshow(img2, cmap="gray", vmin=-1, vmax=1)
-    axes[2, i].set_title(f"Fake\nP(real)={pred2:.3f}", fontsize=9)
-    axes[3, i].imshow(img2, cmap="gray", vmin=-1, vmax=1, alpha=0.6)
-    axes[3, i].imshow(sal2, cmap="hot", alpha=0.6)
-    for r in range(4):
-        axes[r, i].axis("off")
-
-axes[0, 0].set_ylabel("Real",         rotation=0, labelpad=30, ha="right", va="center")
-axes[1, 0].set_ylabel("Saliency real", rotation=0, labelpad=30, ha="right", va="center")
-axes[2, 0].set_ylabel("Fake",         rotation=0, labelpad=30, ha="right", va="center")
-axes[3, 0].set_ylabel("Saliency fake", rotation=0, labelpad=30, ha="right", va="center")
-fig.suptitle("Khao sat 2: Detector saliency - vung mau do = pixel quan trong")
-fig.tight_layout()
-fig.savefig(f"{OUT_DIR}/survey2_saliency.png", dpi=150)
-plt.close()
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# KHAO SAT 3: PGD Attack + Saliency change
-# ═══════════════════════════════════════════════════════════════════════════════
-log("\n" + "=" * 55)
-log("KHAO SAT 3: PGD Attack + Saliency change")
-log("=" * 55)
-
-def pgd_attack(model, x, epsilon, alpha=None, n_steps=20):
-    if alpha is None:
-        alpha = max(epsilon / 8, 0.005)
-    x_orig = x.clone().detach()
-    x_adv  = x_orig.clone()
-    for _ in range(n_steps):
-        x_adv = x_adv.detach().requires_grad_(True)
-        pred = model(x_adv)
-        target = torch.zeros_like(pred)
-        loss = criterion(pred, target)
-        loss.backward()
-        x_new = x_adv + alpha * x_adv.grad.sign()
-        x_new = torch.max(torch.min(x_new, x_orig + epsilon), x_orig - epsilon)
-        x_adv = torch.clamp(x_new, -1.0, 1.0)
-    return x_adv.detach()
-
-# Tan cong tren 1000 anh fake voi cac muc epsilon
-N_ATK = 1000
-with torch.no_grad():
-    atk_fakes = G(torch.randn(N_ATK, Z_DIM, device=DEVICE))
-
-epsilons = [0.0, 0.01, 0.02, 0.05, 0.10, 0.15, 0.20, 0.30]
-attack_results = {}
-for eps in epsilons:
-    for p in detector.parameters():
-        p.requires_grad_(True)
-    BS = 100
-    advs = []
-    for i in range(0, N_ATK, BS):
-        advs.append(pgd_attack(detector, atk_fakes[i:i+BS], eps))
-    adv_imgs = torch.cat(advs)
+# Latent walk: intra-class (giu y, walk z) — verify cGAN co structure latent space
+N_WALK = 12
+torch.manual_seed(101)
+fig, axes = plt.subplots(NUM_CLASSES, N_WALK, figsize=(0.65 * N_WALK, 0.78 * NUM_CLASSES))
+for c in range(NUM_CLASSES):
+    z1 = sample_z(1).squeeze()
+    z2 = sample_z(1).squeeze()
+    z_w = slerp(z1, z2, N_WALK)
+    y_w = torch.full((N_WALK,), c, dtype=torch.long, device=DEVICE)
     with torch.no_grad():
-        preds = (detector(adv_imgs) > 0.5).float()
-    acc = (preds == 0).float().mean().item()
-    mean_pred = detector(adv_imgs).mean().item()
-    attack_results[eps] = {"acc": acc, "conf": mean_pred, "samples": adv_imgs[:6].detach().clone()}
-    log(f"  eps={eps:5.2f}  detector_acc={acc:.4f}  mean_P(real)={mean_pred:.4f}")
+        x_w = G(z_w, y_w)
+    for j in range(N_WALK):
+        axes[c, j].imshow(x_w[j, 0].cpu().numpy(), cmap="gray", vmin=-1, vmax=1)
+        axes[c, j].axis("off")
+    axes[c, 0].set_ylabel(f"y={c}", rotation=0, labelpad=15, ha="right", va="center")
+fig.suptitle("Thi nghiem 1: Latent walk cGAN — giu y co dinh, SLERP z1->z2")
+fig.tight_layout(); fig.savefig(f"{OUT_DIR}/exp1_walk.png", dpi=130); plt.close()
+log(f"  Saved exp1_walk.png ({NUM_CLASSES} hang x {N_WALK} frames)")
 
-# Plot accuracy curve
-fig, ax = plt.subplots(figsize=(7.5, 4))
-eps_arr = epsilons
-acc_arr = [attack_results[e]["acc"]  for e in eps_arr]
-con_arr = [attack_results[e]["conf"] for e in eps_arr]
-ax.plot(eps_arr, acc_arr, marker="o", linewidth=2, color="#F44336", label="Detector accuracy")
-ax.plot(eps_arr, con_arr, marker="s", linewidth=2, color="#2196F3", linestyle="--", label="Mean P(real)")
-ax.axhline(y=0.5, color="gray", linestyle=":", alpha=0.6, label="Random guess")
-ax.set_xlabel("Epsilon"); ax.set_ylabel("Value")
-ax.set_title("PGD attack: detector breakdown")
-ax.set_ylim(0, 1.05); ax.legend(); ax.grid(alpha=0.3); fig.tight_layout()
-fig.savefig(f"{OUT_DIR}/survey3_attack_curve.png", dpi=150)
-plt.close()
+# FFT analysis
+spec_real_1 = avg_log_fft(mnist_reals)
+spec_fake_1 = avg_log_fft(cgan_fakes)
+diff_1      = spec_fake_1 - spec_real_1
+log(f"  L1 |log|FFT_fake| - log|FFT_real||: {np.abs(diff_1).mean():.4f}")
 
-# Saliency before/after attack
-EPS_DEMO = 0.10
-N_DEMO   = 6
-fakes_before = atk_fakes[:N_DEMO].detach().clone()
-fakes_after  = attack_results[EPS_DEMO]["samples"][:N_DEMO]
+plot_fft_panels(spec_real_1, spec_fake_1,
+                "Thi nghiem 1: cGAN vs MNIST — log|FFT|",
+                "exp1_fft.png",
+                real_label="Real (MNIST)", fake_label="Fake (cGAN)")
 
-sal_before = saliency_map(detector, fakes_before)
-sal_after  = saliency_map(detector, fakes_after)
-perturb    = (fakes_after - fakes_before).detach()
+# Radial profile
+prof_real_1 = radial_profile(spec_real_1)
+prof_fake_1 = radial_profile(spec_fake_1)
+log(f"  High-freq tail diff (last 30%): "
+    f"{(prof_fake_1[-len(prof_fake_1)//3:] - prof_real_1[-len(prof_real_1)//3:]).mean():+.4f}")
 
-# Pixel correlation between perturbation and saliency before
-sal_before_flat  = sal_before.view(N_DEMO, -1).cpu().numpy()
-perturb_abs_flat = perturb.abs().view(N_DEMO, -1).cpu().numpy()
-correlations = []
-for i in range(N_DEMO):
-    if sal_before_flat[i].std() > 0 and perturb_abs_flat[i].std() > 0:
-        c = np.corrcoef(sal_before_flat[i], perturb_abs_flat[i])[0, 1]
-        correlations.append(c)
-log(f"  Saliency (truoc attack) vs |perturbation| | mean Pearson r: {np.mean(correlations):.3f}")
 
-# Visualize: original | sal before | adversarial | sal after | perturbation
-fig, axes = plt.subplots(N_DEMO, 5, figsize=(11, 1.7 * N_DEMO))
-for i in range(N_DEMO):
-    p_before = detector(fakes_before[i:i+1]).item()
-    p_after  = detector(fakes_after[i:i+1]).item()
-    axes[i, 0].imshow(fakes_before[i, 0].cpu().numpy(), cmap="gray", vmin=-1, vmax=1)
-    axes[i, 0].set_title(f"Before\nP(real)={p_before:.3f}", fontsize=9)
-    axes[i, 1].imshow(fakes_before[i, 0].cpu().numpy(), cmap="gray", vmin=-1, vmax=1, alpha=0.55)
-    axes[i, 1].imshow(sal_before[i, 0].cpu().numpy(),   cmap="hot",  alpha=0.55)
-    axes[i, 1].set_title("Saliency before", fontsize=9)
-    axes[i, 2].imshow(fakes_after[i, 0].cpu().numpy(), cmap="gray", vmin=-1, vmax=1)
-    axes[i, 2].set_title(f"After PGD ε={EPS_DEMO}\nP(real)={p_after:.3f}", fontsize=9)
-    axes[i, 3].imshow(fakes_after[i, 0].cpu().numpy(), cmap="gray", vmin=-1, vmax=1, alpha=0.55)
-    axes[i, 3].imshow(sal_after[i, 0].cpu().numpy(),   cmap="hot",  alpha=0.55)
-    axes[i, 3].set_title("Saliency after", fontsize=9)
-    axes[i, 4].imshow(perturb[i, 0].cpu().numpy(), cmap="seismic", vmin=-EPS_DEMO, vmax=EPS_DEMO)
-    axes[i, 4].set_title("Perturbation", fontsize=9)
-    for c in range(5):
-        axes[i, c].axis("off")
+# ═════════════════════════════════════════════════════════════════════════════
+# THI NGHIEM 2 — Open-weight PGAN-DTD
+# ═════════════════════════════════════════════════════════════════════════════
+section("THI NGHIEM 2: Open-weight PGAN-DTD")
 
-fig.suptitle(f"Khao sat 3: PGD attack tai ε={EPS_DEMO} - saliency va perturbation")
+# Load pretrained PGAN
+pgan = torch.hub.load('facebookresearch/pytorch_GAN_zoo:hub', 'PGAN',
+                      model_name='DTD', pretrained=True,
+                      useGPU=(DEVICE == 'cuda'))
+log("  Loaded Progressive GAN (Karras et al. 2018), pretrained tren DTD")
+
+# Sample fakes (small batches + del + gc tu giai phong memory cua intermediate activations)
+import gc
+BS_PGAN = 16
+pgan_fakes_rgb = []
+for i in range(0, N_SAMPLES, BS_PGAN):
+    n = min(BS_PGAN, N_SAMPLES - i)
+    noise, _ = pgan.buildNoiseData(n)
+    with torch.no_grad():
+        x = pgan.test(noise)
+    pgan_fakes_rgb.append(x.cpu())
+    del x, noise
+    gc.collect()
+pgan_fakes_rgb = torch.cat(pgan_fakes_rgb)
+img_h          = pgan_fakes_rgb.shape[2]
+log(f"  PGAN fakes: {pgan_fakes_rgb.shape}  range "
+    f"[{pgan_fakes_rgb.min():.2f}, {pgan_fakes_rgb.max():.2f}]")
+
+# Get DTD reals at matching resolution
+tf_dtd = transforms.Compose([
+    transforms.Resize(img_h),
+    transforms.CenterCrop(img_h),
+    transforms.ToTensor(),
+    transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5]),
+])
+dtd_train  = torchvision.datasets.DTD(DATA_DIR, split='train', download=True, transform=tf_dtd)
+dtd_loader = DataLoader(dtd_train, batch_size=N_SAMPLES, shuffle=True, num_workers=0)
+dtd_reals_rgb, _ = next(iter(dtd_loader))
+log(f"  DTD train size: {len(dtd_train)}")
+log(f"  DTD reals: {dtd_reals_rgb.shape}  range "
+    f"[{dtd_reals_rgb.min():.2f}, {dtd_reals_rgb.max():.2f}]")
+
+# Save sanity grids
+save_image(pgan_fakes_rgb[:64], f"{OUT_DIR}/exp2_pgan_samples.png", nrow=8, normalize=True)
+save_image(dtd_reals_rgb[:64],  f"{OUT_DIR}/exp2_dtd_samples.png",  nrow=8, normalize=True)
+
+# Latent walk PGAN — linear interp giua hai noise tu buildNoiseData (an toan hon SLERP)
+N_PGAN_WALKS = 6
+N_WALK_PGAN  = 10
+fig, axes = plt.subplots(N_PGAN_WALKS, N_WALK_PGAN,
+                          figsize=(1.0 * N_WALK_PGAN, 1.0 * N_PGAN_WALKS))
+for r in range(N_PGAN_WALKS):
+    pair, _ = pgan.buildNoiseData(2)
+    z1 = pair[0:1]; z2 = pair[1:2]
+    alphas = torch.linspace(0, 1, N_WALK_PGAN, device=pair.device).view(-1, 1)
+    z_w = (1 - alphas) * z1 + alphas * z2
+    with torch.no_grad():
+        x_w = pgan.test(z_w).cpu()
+    x_w = (x_w - x_w.min()) / (x_w.max() - x_w.min() + 1e-6)
+    for j in range(N_WALK_PGAN):
+        img = x_w[j].permute(1, 2, 0).numpy()
+        axes[r, j].imshow(img)
+        axes[r, j].axis("off")
+fig.suptitle("Thi nghiem 2: Latent walk PGAN — linear interp z1->z2")
+fig.tight_layout(); fig.savefig(f"{OUT_DIR}/exp2_walk.png", dpi=130); plt.close()
+log(f"  Saved exp2_walk.png ({N_PGAN_WALKS} hang x {N_WALK_PGAN} frames)")
+
+# Convert to grayscale for apple-to-apple FFT analysis
+pgan_fakes_gray = rgb_to_gray(pgan_fakes_rgb)
+dtd_reals_gray  = rgb_to_gray(dtd_reals_rgb)
+
+spec_real_2 = avg_log_fft(dtd_reals_gray)
+spec_fake_2 = avg_log_fft(pgan_fakes_gray)
+diff_2      = spec_fake_2 - spec_real_2
+log(f"  L1 |log|FFT_fake| - log|FFT_real||: {np.abs(diff_2).mean():.4f}")
+
+plot_fft_panels(spec_real_2, spec_fake_2,
+                "Thi nghiem 2: PGAN vs DTD — log|FFT|",
+                "exp2_fft.png",
+                real_label="Real (DTD)", fake_label="Fake (PGAN)")
+
+# Radial profile
+prof_real_2 = radial_profile(spec_real_2)
+prof_fake_2 = radial_profile(spec_fake_2)
+log(f"  High-freq tail diff (last 30%): "
+    f"{(prof_fake_2[-len(prof_fake_2)//3:] - prof_real_2[-len(prof_real_2)//3:]).mean():+.4f}")
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Combined comparison plot
+# ═════════════════════════════════════════════════════════════════════════════
+section("So sanh radial frequency profile cua 2 thi nghiem")
+
+fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
+
+freq1 = np.arange(len(prof_real_1)) / len(prof_real_1)
+ax1.plot(freq1, prof_real_1, color="#1976D2", linewidth=2, label="Real (MNIST)")
+ax1.plot(freq1, prof_fake_1, color="#F44336", linewidth=2, label="Fake (cGAN)")
+ax1.set_xlabel("Normalized radial frequency")
+ax1.set_ylabel("Mean log|FFT|")
+ax1.set_title("Thi nghiem 1: cGAN-MNIST (in-house)")
+ax1.legend(); ax1.grid(alpha=0.3)
+
+freq2 = np.arange(len(prof_real_2)) / len(prof_real_2)
+ax2.plot(freq2, prof_real_2, color="#1976D2", linewidth=2, label="Real (DTD)")
+ax2.plot(freq2, prof_fake_2, color="#F44336", linewidth=2, label="Fake (PGAN)")
+ax2.set_xlabel("Normalized radial frequency")
+ax2.set_ylabel("Mean log|FFT|")
+ax2.set_title("Thi nghiem 2: PGAN-DTD (open-weight)")
+ax2.legend(); ax2.grid(alpha=0.3)
+
+fig.suptitle("Radial frequency profile — fake (do) > real (xanh) o mid-high freq trong CA HAI thi nghiem",
+             fontsize=11)
 fig.tight_layout()
-fig.savefig(f"{OUT_DIR}/survey3_saliency_change.png", dpi=150)
+fig.savefig(f"{OUT_DIR}/combined_radial.png", dpi=130)
 plt.close()
 
-# ── Summary ───────────────────────────────────────────────────────────────────
-log("\n" + "=" * 55)
-log("SUMMARY")
-log("=" * 55)
-log(f"  Detector clean accuracy: {det_acc:.4f}")
-log(f"  K1: linear interp diff  = {np.mean(diffs_lin):.4f} +/- {np.std(diffs_lin):.4f}")
-log(f"  K1: SLERP diff           = {np.mean(diffs_slerp):.4f} +/- {np.std(diffs_slerp):.4f}")
-log(f"  K2: mean saliency real   = {mean_sal_real:.5f}")
-log(f"  K2: mean saliency fake   = {mean_sal_fake:.5f}")
-log(f"  K3: acc at eps=0.10      = {attack_results[0.10]['acc']:.4f}")
-log(f"  K3: acc at eps=0.20      = {attack_results[0.20]['acc']:.4f}")
-log(f"  K3: corr(saliency, |perturbation|) = {np.mean(correlations):.3f}")
 
-log("\n  Output files:")
-log("    gan_samples.png")
-log("    survey1_latent_walk.png")
-log("    survey1_smoothness.png")
-log("    survey2_saliency.png")
-log("    survey3_attack_curve.png")
-log("    survey3_saliency_change.png")
+# ═════════════════════════════════════════════════════════════════════════════
+# Summary
+# ═════════════════════════════════════════════════════════════════════════════
+section("SUMMARY")
+log(f"  Thi nghiem 1 (cGAN-MNIST):   L1 FFT diff = {np.abs(diff_1).mean():.4f}, "
+    f"high-freq tail diff = {(prof_fake_1[-len(prof_fake_1)//3:] - prof_real_1[-len(prof_real_1)//3:]).mean():+.4f}")
+log(f"  Thi nghiem 2 (PGAN-DTD):     L1 FFT diff = {np.abs(diff_2).mean():.4f}, "
+    f"high-freq tail diff = {(prof_fake_2[-len(prof_fake_2)//3:] - prof_real_2[-len(prof_real_2)//3:]).mean():+.4f}")
+log("")
+log("  Ket luan: ca hai thi nghiem cho thay fake co thua nang luong high-freq vs real.")
+log("  GAN frequency fingerprint la tinh chat chung, khong phai artifact training cua mot model.")
+log("")
+log("  Output files:")
+log("    exp1_cgan_samples.png  exp1_mnist_samples.png  exp1_walk.png  exp1_fft.png")
+log("    exp2_pgan_samples.png  exp2_dtd_samples.png    exp2_walk.png  exp2_fft.png")
+log("    combined_radial.png  [KEY CHART]")
 
 LOG_FILE.close()

@@ -82,9 +82,16 @@ def load_imagenette_reals(n, log):
     paths = []
     for split in ["train", "val"]:
         split_dir = os.path.join(IMAGENETTE_DIR, split)
+        if not os.path.isdir(split_dir):
+            continue
         for cls in sorted(os.listdir(split_dir)):
             cls_dir = os.path.join(split_dir, cls)
+            # skip metadata files like .DS_Store, Thumbs.db
+            if not os.path.isdir(cls_dir) or cls.startswith('.'):
+                continue
             for f in os.listdir(cls_dir):
+                if f.startswith('.'):
+                    continue
                 if f.lower().endswith(('.jpg', '.jpeg', '.png')):
                     paths.append(os.path.join(cls_dir, f))
     rng = np.random.RandomState(SEED)

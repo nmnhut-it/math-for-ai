@@ -1,0 +1,49 @@
+Device: cpu
+N_PER_CLASS=10000  EPOCHS=5  BATCH=64  LR=0.001
+
+============================================================
+Build dataset
+============================================================
+  Reals: torch.Size([10000, 1, 28, 28])  range [-1.00, 1.00]
+  Fakes: torch.Size([10000, 1, 28, 28])  range [-1.00, 1.00]
+  Combined: X=torch.Size([20000, 1, 28, 28])  y=torch.Size([20000])
+  Label convention: 0 = real, 1 = fake
+  Train/Val split: 16000/4000
+
+============================================================
+Build TinyCNN
+============================================================
+  Parameters: 105,346
+  Architecture:
+    conv1: (1->16, 3x3) -> ReLU -> MaxPool(2)  ->  (16,14,14)
+    conv2: (16->32, 3x3) -> ReLU -> MaxPool(2) ->  (32, 7, 7)
+    fc1:   (1568 -> 64) -> ReLU
+    fc2:   (64 -> 2) logits
+
+============================================================
+Training
+============================================================
+   Epoch  TrainLoss   TrainAcc    ValLoss     ValAcc
+       1     0.5165     0.7305     0.1946     0.9460
+       2     0.1501     0.9469     0.0952     0.9742
+       3     0.0791     0.9735     0.2412     0.8970
+       4     0.0623     0.9789     0.0723     0.9712
+       5     0.0488     0.9850     0.0409     0.9878
+
+  Best val acc: 0.9878  (saved to output/cnn_best.pth)
+
+============================================================
+Final evaluation (best checkpoint)
+============================================================
+  Val accuracy: 0.9878
+  Val loss:     0.0409
+
+  Confusion matrix:
+                 pred=real  pred=fake
+    true=real         1972         23
+    true=fake           26       1979
+
+    Real recall: 0.9885
+    Fake recall: 0.9870
+  Saved output/confusion_matrix.png
+  Saved output/dataset.pt for Grad-CAM script

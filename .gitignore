@@ -29,3 +29,7 @@ Thumbs.db
 *.tmp
 *.bak
 *.log
+
+# Cached datasets (large, regenerable from scripts)
+lab2_cnn/output/dataset.pt
+lab2_cnn/output/dataset_pgan.pt

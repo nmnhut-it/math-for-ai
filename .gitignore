@@ -33,3 +33,10 @@ Thumbs.db
 # Cached datasets (large, regenerable from scripts)
 lab2_cnn/output/dataset.pt
 lab2_cnn/output/dataset_pgan.pt
+
+# Node deps for docx skill (build_docx.js needs `npm install docx` to run)
+lab2_cnn/node_modules/
+lab2_cnn/package-lock.json
+
+# Submission staging folder (final .zip is what gets uploaded)
+submissions/

@@ -1,24 +1,6 @@
-"""
-Lab 2 — Benchmark thu 3: BigGAN-128 (class-conditional, ImageNet) vs Imagenette real.
-
-Why BigGAN: cGAN-MLP cu (Section 4) la GAN don gian 2014, PGAN-DTD (Section 4.4)
-la unconditional 2018 — chua co "good conditional GAN" thuc thu trong report.
-BigGAN-128 (Brock et al. 2018, DeepMind) la SOTA cGAN thoi diem 2018, lop
-1000 ImageNet classes. Pretrained tu pytorch-pretrained-biggan (HuggingFace).
-
-Detector: ResNet18 pretrained ImageNet, transfer learning hai pha:
-  Pha 1: freeze backbone, train chi fc layer (3 epoch, lr=1e-3)
-  Pha 2: unfreeze layer4 + fc, fine-tune (12 epoch, lr=1e-4)
-Muc tieu: dat 80%+ val accuracy (vs TexCNN 62.5% tren PGAN cua Section 4.4).
-
-Reals: Imagenette-160 (10-class subset cua ImageNet, ~94 MB, no auth needed).
-"""
-
-import os
-import gc
-import sys
-import urllib.request
-import tarfile
+# ResNet18 transfer tren BigGAN-128 fakes vs Imagenette reals
+# Reals: Imagenette-160 (10 lop ImageNet, ~94 MB, public download)
+import os, gc, sys, urllib.request, tarfile
 import numpy as np
 import torch
 import torch.nn as nn
@@ -54,11 +36,7 @@ os.makedirs(OUT_DIR, exist_ok=True)
 os.makedirs(DATA_DIR, exist_ok=True)
 
 
-# ───────────────────────────────────────────────────────────────────
-# 1. Imagenette real images
-# ───────────────────────────────────────────────────────────────────
 def download_imagenette(log):
-    """Tai imagenette-160 neu chua co. ~94 MB."""
     if os.path.exists(IMAGENETTE_DIR):
         log(f"  Imagenette already at {IMAGENETTE_DIR}")
         return
@@ -74,10 +52,6 @@ def download_imagenette(log):
 
 
 def load_imagenette_reals(n, log):
-    """Lay n anh real tu Imagenette train + val (any class), resize 128x128.
-
-    Tra ve tensor (n, 3, 128, 128) trong [-1, 1].
-    """
     download_imagenette(log)
     paths = []
     for split in ["train", "val"]:
@@ -112,11 +86,7 @@ def load_imagenette_reals(n, log):
     return torch.stack(tensors)
 
 
-# ───────────────────────────────────────────────────────────────────
-# 2. BigGAN-128 fake images
-# ───────────────────────────────────────────────────────────────────
 def sample_biggan_fakes(n, log):
-    """Sample n fake tu BigGAN-deep-128. Returns (n, 3, 128, 128) trong [-1, 1]."""
     try:
         from pytorch_pretrained_biggan import (BigGAN, one_hot_from_int,
                                                 truncated_noise_sample)
@@ -148,9 +118,6 @@ def sample_biggan_fakes(n, log):
     return torch.cat(fakes)[:n]
 
 
-# ───────────────────────────────────────────────────────────────────
-# 3. Build dataset
-# ───────────────────────────────────────────────────────────────────
 def build_dataset(log):
     log("\n" + "=" * 60); log("Build BigGAN-Imagenette dataset"); log("=" * 60)
 
@@ -166,9 +133,6 @@ def build_dataset(log):
     return X, y
 
 
-# ───────────────────────────────────────────────────────────────────
-# 4. ResNet18 transfer learning
-# ───────────────────────────────────────────────────────────────────
 def build_resnet18():
     m = models.resnet18(weights=ResNet18_Weights.DEFAULT)
     m.fc = nn.Linear(m.fc.in_features, 2)
@@ -203,9 +167,6 @@ def renormalize_for_imagenet(x):
     return (x01 - IMAGENET_MEAN.to(x.device)) / IMAGENET_STD.to(x.device)
 
 
-# ───────────────────────────────────────────────────────────────────
-# 5. Train + eval helpers
-# ───────────────────────────────────────────────────────────────────
 def train_one_epoch(model, loader, opt, loss_fn, augment=True):
     model.train()
     total_loss = 0.0; correct = 0; n = 0
@@ -267,9 +228,6 @@ def plot_confusion(cm, fname, title):
     fig.tight_layout(); fig.savefig(f"{OUT_DIR}/{fname}", dpi=130); plt.close()
 
 
-# ───────────────────────────────────────────────────────────────────
-# 6. Main
-# ───────────────────────────────────────────────────────────────────
 def main():
     LOG = open(f"{OUT_DIR}/results_biggan.txt", "w", encoding="utf-8")
     def log(m=""):

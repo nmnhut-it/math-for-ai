@@ -1,0 +1,54 @@
+Device: cuda
+N_PER_CLASS=1500  EPOCHS=8  BATCH=32  LR=0.0005  IMG_SIZE=128
+
+============================================================
+Build PGAN-DTD dataset
+============================================================
+  Loaded PGAN-DTD
+  Fakes: torch.Size([1500, 3, 128, 128])  range [-1.00, 1.00]
+  Reals: torch.Size([1500, 3, 128, 128])  range [-1.00, 1.00]
+  Combined: X=torch.Size([3000, 3, 128, 128])  y=torch.Size([3000])  (label: 0=real, 1=fake)
+  Train/Val split: 2400/600
+
+============================================================
+Build TexCNN
+============================================================
+  Parameters: 585,186
+  Architecture (input 3x128x128):
+    conv1+pool: 3->16,   128x128 -> 64x64
+    conv2+pool: 16->32,   64x64 -> 32x32
+    conv3+pool: 32->64,   32x32 -> 16x16
+    conv4+pool: 64->64,   16x16 ->  8x8
+    fc1: 64*8*8=4096 -> 128 + dropout(0.3)
+    fc2: 128 -> 2 logits
+
+============================================================
+Training
+============================================================
+   Epoch  TrainLoss   TrainAcc    ValLoss     ValAcc
+       1     0.6842     0.5604     0.6856     0.5433
+       2     0.6768     0.5646     0.6783     0.5700
+       3     0.6665     0.5908     0.6761     0.5683
+       4     0.6618     0.6033     0.6792     0.5833
+       5     0.6513     0.6112     0.6578     0.6017
+       6     0.6518     0.6283     0.6674     0.6033
+       7     0.6299     0.6329     0.6680     0.6167
+       8     0.6149     0.6558     0.6523     0.6167
+
+  Best val acc: 0.6167  (saved to output/cnn_pgan_best.pth)
+
+============================================================
+Final evaluation (best)
+============================================================
+  Val accuracy: 0.6167
+
+  Confusion matrix:
+                 pred=real  pred=fake
+    true=real          200        105
+    true=fake          125        170
+
+    Real recall (TN/(TN+FP)): 0.6557
+    Fake recall (TP/(TP+FN)): 0.5763
+    False Positive rate:      0.3443
+    False Negative rate:      0.4237
+  Saved dataset_pgan.pt

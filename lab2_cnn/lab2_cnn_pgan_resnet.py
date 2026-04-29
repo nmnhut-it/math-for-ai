@@ -1,18 +1,6 @@
-"""
-Lab 2 — Fair-comparison: ResNet18 transfer tren PGAN-DTD.
-
-Muc tieu: tach effect cua "transfer learning" khoi effect cua "GAN architecture".
-TexCNN train scratch tren PGAN-DTD chi 62.5%. ResNet18 transfer tren BigGAN dat
-99.10%. Confound: ca detector va GAN deu khac. Script nay chay CUNG ResNet18
-transfer pipeline (giong lab2_cnn_biggan.py) nhung tren data PGAN-DTD.
-
-Ket qua phan biet 2 gia thuyet:
-  - Neu PGAN-ResNet18 ~90%+ : transfer learning cuu moi modern GAN.
-  - Neu PGAN-ResNet18 van ~60-70% : PGAN intrinsically kho detect hon BigGAN.
-"""
-
-import os
-import gc
+# ResNet18 transfer tren PGAN-DTD — doi chung voi TexCNN scratch o lab2_cnn_pgan.py
+# Cung dataset, doi detector, de tach effect transfer learning khoi effect GAN architecture
+import os, gc
 import numpy as np
 import torch
 import torch.nn as nn
@@ -25,7 +13,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-# Compat patch: PGAN zoo goi optim.Adam voi betas list — PyTorch 2.x reject.
+# pytorch_GAN_zoo goi Adam voi betas list — PyTorch 2.x reject mix float/Tensor
 _orig_adam_init = optim.Adam.__init__
 def _patched_adam_init(self, params, *args, **kwargs):
     if 'betas' in kwargs and kwargs['betas'] is not None:
@@ -53,9 +41,6 @@ os.makedirs(OUT_DIR, exist_ok=True)
 os.makedirs(DATA_DIR, exist_ok=True)
 
 
-# ───────────────────────────────────────────────────────────────────
-# 1. Dataset: PGAN-DTD fakes + DTD reals (cung pipeline lab2_cnn_pgan.py)
-# ───────────────────────────────────────────────────────────────────
 def build_dataset(log):
     log("\n" + "=" * 60); log("Build PGAN-DTD dataset"); log("=" * 60)
 
@@ -102,9 +87,6 @@ def build_dataset(log):
     return X, y
 
 
-# ───────────────────────────────────────────────────────────────────
-# 2. ResNet18 transfer (giong lab2_cnn_biggan.py — copy de self-contained)
-# ───────────────────────────────────────────────────────────────────
 def build_resnet18():
     m = models.resnet18(weights=ResNet18_Weights.DEFAULT)
     m.fc = nn.Linear(m.fc.in_features, 2)
@@ -135,9 +117,6 @@ def renormalize_for_imagenet(x):
     return (x01 - IMAGENET_MEAN.to(x.device)) / IMAGENET_STD.to(x.device)
 
 
-# ───────────────────────────────────────────────────────────────────
-# 3. Train + eval
-# ───────────────────────────────────────────────────────────────────
 def train_one_epoch(model, loader, opt, loss_fn, augment=True):
     model.train()
     total_loss = 0.0; correct = 0; n = 0
@@ -197,9 +176,6 @@ def plot_confusion(cm, fname, title):
     fig.tight_layout(); fig.savefig(f"{OUT_DIR}/{fname}", dpi=130); plt.close()
 
 
-# ───────────────────────────────────────────────────────────────────
-# 4. Main
-# ───────────────────────────────────────────────────────────────────
 def main():
     LOG = open(f"{OUT_DIR}/results_pgan_resnet.txt", "w", encoding="utf-8")
     def log(m=""):

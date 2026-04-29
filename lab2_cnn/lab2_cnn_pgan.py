@@ -1,20 +1,5 @@
-"""
-Lab 2 PGAN extension - CNN classifier phan biet DTD-real vs PGAN-fake.
-
-Question: hand-feature (Var(Lap)) fail tren cap nay (Cohen's d = -0.19, negligible)
-vi PGAN texture qua muot va fingerprint o mid-freq.
-Lieu CNN co tu hoc duoc feature phu hop khong?
-
-Pipeline:
-  1. Sample 1500 PGAN fakes (RGB 128x128)
-  2. Lay 1500 DTD reals (resize+crop 128x128)
-  3. Train CNN nho hon vua tay (4 conv + FC) cho 128x128 RGB
-  4. Evaluate accuracy + confusion matrix
-  5. Save checkpoint cho Grad-CAM
-"""
-
-import os
-import gc
+# TexCNN tu dau de phat hien PGAN-DTD fake — bai test xem detector nho co bam noi PGAN khong
+import os, gc
 import numpy as np
 import torch
 import torch.nn as nn
@@ -27,8 +12,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-# Compat patch: pytorch_GAN_zoo (PGAN) goi optim.Adam voi betas list
-# co the chua mix float/Tensor — PyTorch 2.x reject. Coerce both ve float.
+# pytorch_GAN_zoo goi Adam voi betas list — PyTorch 2.x reject mix float/Tensor, coerce ve float
 _orig_adam_init = optim.Adam.__init__
 def _patched_adam_init(self, params, *args, **kwargs):
     if 'betas' in kwargs and kwargs['betas'] is not None:
@@ -101,10 +85,8 @@ def build_dataset(log_fn=print):
 
 
 class TexCNN(nn.Module):
-    """CNN cho 128x128 RGB. 4 conv block (stride-2 or pool) + FC."""
     def __init__(self):
         super().__init__()
-        # 128 -> 64 -> 32 -> 16 -> 8
         self.conv1 = nn.Conv2d(3,  16, kernel_size=3, padding=1)
         self.conv2 = nn.Conv2d(16, 32, kernel_size=3, padding=1)
         self.conv3 = nn.Conv2d(32, 64, kernel_size=3, padding=1)

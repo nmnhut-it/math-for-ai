@@ -1,23 +1,5 @@
-"""
-Lab 2 - CNN classifier phan biet anh thuc (MNIST) vs anh fake (cGAN).
-
-Pipeline:
-  1. Load cGAN checkpoint tu lab2/, sample 10k fake digits
-  2. Lay 10k MNIST real digits
-  3. Build dataset: label real=0, fake=1
-  4. Train Tiny CNN (2 conv + FC) phan biet 2 lop
-  5. Evaluate accuracy + confusion matrix
-  6. Save checkpoint cho Grad-CAM o file rieng
-
-Constants:
-  N_PER_CLASS = 10000  # 10k each class
-  EPOCHS      = 5
-  BATCH       = 64
-  LR          = 1e-3
-"""
-
-import os
-import sys
+# TinyCNN phan biet MNIST that vs cGAN fake
+import os, sys
 import numpy as np
 import torch
 import torch.nn as nn
@@ -47,7 +29,6 @@ os.makedirs(OUT_DIR, exist_ok=True)
 
 
 def build_dataset(log_fn=print):
-    """Tra ve (X, y) tensor: X shape (2N, 1, 28, 28), y shape (2N,) gia tri 0/1."""
     log_fn("\n" + "=" * 60); log_fn("Build dataset"); log_fn("=" * 60)
 
     tf = transforms.Compose([transforms.ToTensor(),
@@ -75,7 +56,6 @@ def build_dataset(log_fn=print):
 
 
 class TinyCNN(nn.Module):
-    """2 conv + 1 FC. Input (B,1,28,28) -> output (B,2) logits."""
     def __init__(self):
         super().__init__()
         self.conv1 = nn.Conv2d(1,  16, kernel_size=3, padding=1)

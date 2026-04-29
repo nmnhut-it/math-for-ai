@@ -1,32 +1,6 @@
-"""
-Grad-CAM cho TinyCNN da train + chung minh CNN nhin vao pixel jitter.
-
-Method (Selvaraju et al. 2017):
-  1. Forward pass, capture activation A^k cua target conv layer (B, K, H, W)
-  2. Compute gradient cua class score y^c theo A^k
-  3. Global average pool gradients -> channel weight
-       alpha^c_k = mean_{i,j}(dy^c / dA^k_{i,j})
-  4. Weighted sum: L^c = ReLU(sum_k alpha^c_k * A^k)
-  5. Upsample L^c ve kich thuoc input
-
-Outputs:
-  output/gradcam_overlay.png : 6 hang x 4 cot.
-      hang 1-3: 4 anh REAL,  goc | high-freq residual | Grad-CAM overlay
-      hang 4-6: 4 anh FAKE,  goc | high-freq residual | Grad-CAM overlay
-      colorbar tach roi cho 2 thang mau.
-  output/gradcam_mean.png    : trung binh Grad-CAM real vs fake
-  output/gradcam_corr.png    : scatter (residual_intensity, gradcam_intensity)
-                               + Pearson r in vao tieu de
-                               -> chung minh CNN nhin vao high-freq jitter
-
-Cach doc colormap (in tieu de):
-  jet: xanh duong = thap, xanh la -> vang -> cam -> do = cao.
-  Voi residual: do = pixel co cuong do high-freq cao (jitter).
-  Voi Grad-CAM: do = vung anh huong nhat den quyet dinh "fake".
-"""
-
-import os
-import sys
+# Grad-CAM (Selvaraju et al. 2017) cho TinyCNN, va do tuong quan voi high-freq residual
+# de chi ra CNN dua quyet dinh "fake" tren vung pixel jitter
+import os, sys
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -39,15 +13,13 @@ from lab2_cnn import TinyCNN
 
 OUT_DIR  = "output"
 DEVICE   = "cuda" if torch.cuda.is_available() else "cpu"
-N_VIS    = 4         # so anh moi loai hien thi (giam tu 8 -> 4 cho de doc)
+N_VIS    = 4
 SEED     = 7
 
 torch.manual_seed(SEED); np.random.seed(SEED)
 
 
-# Grad-CAM core
 class GradCAM:
-    """Hook-based Grad-CAM. target_layer phai la conv layer."""
     def __init__(self, model, target_layer):
         self.model = model
         self.activations = None

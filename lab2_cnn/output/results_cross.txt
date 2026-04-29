@@ -1,0 +1,37 @@
+Device: directml
+Cross-test: ResNet18 da train tren BigGAN-Imagenette, ap len PGAN-DTD val
+  N_per_class = 500, IMG_SIZE = 128
+
+============================================================
+Build PGAN-DTD test data
+============================================================
+  Loading PGAN-DTD pretrained
+    sampled 16/500
+    sampled 96/500
+    sampled 176/500
+    sampled 256/500
+    sampled 336/500
+    sampled 416/500
+    sampled 496/500
+  Fakes: torch.Size([500, 3, 128, 128])  range [-1.00, 1.00]
+  Loaded 500 DTD reals
+  Reals: torch.Size([500, 3, 128, 128])  range [-1.00, 1.00]
+  Combined: X=(1000, 3, 128, 128)  y=(1000,)  (0=real DTD, 1=fake PGAN)
+
+============================================================
+Load detector ResNet18(BigGAN-Imagenette)
+============================================================
+  Loaded colab_result/cnn_biggan_resnet_best.pth
+
+============================================================
+Inference
+============================================================
+  Accuracy: 0.5120
+
+  Confusion matrix (0=real DTD, 1=fake PGAN, predict 0/1):
+                 pred=real  pred=fake
+    true=real          210        290
+    true=fake          198        302
+
+    Real recall: 0.4200
+    Fake recall: 0.6040

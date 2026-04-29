@@ -1,0 +1,84 @@
+Device: cuda
+N_PER_CLASS=2500  IMG_SIZE=128  BATCH=32
+Transfer learning: head 3ep @ lr=0.001, finetune 12ep @ lr=0.0001
+
+============================================================
+Build BigGAN-Imagenette dataset
+============================================================
+  Loading BigGAN-deep-128 (download ~340 MB lan dau)
+    sampled 16/2500
+    sampled 176/2500
+    sampled 336/2500
+    sampled 496/2500
+    sampled 656/2500
+    sampled 816/2500
+    sampled 976/2500
+    sampled 1136/2500
+    sampled 1296/2500
+    sampled 1456/2500
+    sampled 1616/2500
+    sampled 1776/2500
+    sampled 1936/2500
+    sampled 2096/2500
+    sampled 2256/2500
+    sampled 2416/2500
+  Fakes:   torch.Size([2500, 3, 128, 128])  range [-1.00, 1.00]
+  Downloading https://s3.amazonaws.com/fast-ai-imageclas/imagenette2-160.tgz
+  Saved to ../data/imagenette2-160.tgz
+  Extracting...
+  Done extracting to ../data/imagenette2-160
+  Loading 2500 Imagenette images
+  Reals:   torch.Size([2500, 3, 128, 128])  range [-1.00, 1.00]
+  Combined: X=torch.Size([5000, 3, 128, 128])  y=torch.Size([5000])  (0=real, 1=fake)
+  Train/Val split: 4000/1000
+
+============================================================
+Build ResNet18 transfer
+============================================================
+  Total params:     11,177,538
+  Trainable (head): 1,026
+
+============================================================
+Phase 1: train head only
+============================================================
+   Epoch  TrainLoss   TrainAcc    ValLoss     ValAcc
+       1     0.4734     0.7660     0.3281     0.8850
+       2     0.3104     0.8778     0.2545     0.9060
+       3     0.2599     0.9008     0.2449     0.9030
+
+============================================================
+Phase 2: unfreeze layer4 + finetune
+============================================================
+  Trainable now: 8,394,754
+   Epoch  TrainLoss   TrainAcc    ValLoss     ValAcc
+       1     0.1587     0.9380     0.0833     0.9680
+       2     0.0435     0.9845     0.0499     0.9790
+       3     0.0229     0.9925     0.0453     0.9840
+       4     0.0268     0.9905     0.0465     0.9840
+       5     0.0137     0.9950     0.0405     0.9870
+       6     0.0186     0.9940     0.0703     0.9830
+       7     0.0134     0.9962     0.0315     0.9900
+       8     0.0142     0.9950     0.0439     0.9820
+       9     0.0110     0.9960     0.0514     0.9840
+      10     0.0074     0.9975     0.0723     0.9830
+      11     0.0069     0.9980     0.0494     0.9890
+      12     0.0115     0.9955     0.0473     0.9910
+
+  Best val acc: 0.9910  (saved to output/cnn_biggan_resnet_best.pth)
+
+============================================================
+Final eval (best ckpt)
+============================================================
+  Val accuracy: 0.9910
+
+  Confusion matrix:
+                 pred=real  pred=fake
+    true=real          474          7
+    true=fake            2        517
+
+    Real recall: 0.9854
+    Fake recall: 0.9961
+
+Saving sample grid...
+  Saved output/biggan_samples.png
+  Saved output/dataset_biggan.pt

@@ -1,25 +1,6 @@
-"""
-Grad-CAM cho ResNet18 transfer da train tren BigGAN va PGAN.
-
-Muc tieu: kiem chung gia thuyet "ResNet18 transfer detect dua tren distribution
-shift cua features ImageNet". Neu Grad-CAM highlight texture/khu vuc co statistic
-khac thuong, gia thuyet duoc support truc quan.
-
-Method (Selvaraju et al. 2017): giong gradcam.py cu, nhung target layer la
-model.layer4 (last conv block). Voi input 128x128, layer4 output (B, 512, 4, 4).
-Upsample CAM 4x4 -> 128x128.
-
-Dau vao: 2 checkpoint da train + 2 dataset cached:
-  output/cnn_biggan_resnet_best.pth + output/dataset_biggan.pt
-  output/cnn_pgan_resnet_best.pth   + output/dataset_pgan_resnet.pt
-
-Output:
-  output/gradcam_biggan.png  — overlay real/fake cho BigGAN-Imagenette
-  output/gradcam_pgan_resnet.png — tuong tu cho PGAN-DTD
-"""
-
-import os
-import sys
+# Grad-CAM cho ResNet18 transfer (BigGAN + PGAN), target layer = model.layer4
+# Voi input 128x128, layer4 output (B, 512, 4, 4) — upsample CAM len 128x128
+import os, sys
 import numpy as np
 import torch
 import torch.nn as nn
@@ -38,7 +19,6 @@ SEED    = 7
 torch.manual_seed(SEED); np.random.seed(SEED)
 
 
-# ResNet18 transfer: same architecture as in lab2_cnn_biggan/lab2_cnn_pgan_resnet
 def build_resnet18():
     m = models.resnet18(weights=ResNet18_Weights.DEFAULT)
     m.fc = nn.Linear(m.fc.in_features, 2)

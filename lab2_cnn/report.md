@@ -104,36 +104,118 @@ Cân bằng giữa 2 lớp, không bị bias.
 
 ![Confusion matrix](output/confusion_matrix.png)
 
-### 4.2 Grad-CAM — CNN nhìn vào đâu?
+### 4.2 Grad-CAM — CNN nhìn vào đâu, và có thực sự là noise pixel-level?
 
-Áp dụng Grad-CAM (lớp `conv2`, hướng class "fake") lên 8 ảnh real + 8 ảnh fake từ val set:
+Áp dụng Grad-CAM (lớp `conv2`, hướng class "fake") lên 4 ảnh real + 4 ảnh fake từ val set, **bố trí 6 hàng** để đối chiếu trực tiếp ảnh gốc, "bản đồ high-frequency", và heatmap chú ý của CNN:
 
 ![Grad-CAM overlay](output/gradcam_overlay.png)
 
-**Quan sát quan trọng:**
+**Cách đọc colormap (jet):** màu xanh đậm = giá trị thấp ≈ 0; xanh lá → vàng → cam → đỏ = giá trị cao ≈ 1. Áp dụng cho 2 thang:
 
-- **Hàng 3 (ảnh fake gốc)**: nhìn rõ **noise rải rác** trong nền đen và bên trong nét chữ — đúng với quan sát ban đầu về MLP jitter. Thậm chí một số ảnh fake bị méo về hình dạng (số "8", "1", "2" méo).
-- **Hàng 4 (Grad-CAM trên fake)**: heatmap nóng (đỏ/vàng) tập trung **đúng vào những vùng có noise và ở mép nét chữ** — chính các vị trí MLP jitter hiện rõ.
-- **Hàng 1-2 (real ảnh + heatmap)**: heatmap cũng có vùng nóng nhưng **diffuse hơn** (lan tỏa), không có hot spot tập trung như fake.
-- Tự tin model rất cao: `P(fake)` cho real ~0.00, cho fake ~0.99-1.00.
+1. **Hàng "high-freq |I − blur(I)|"**: high-frequency map. Mỗi pixel = chênh lệch giữa pixel đó và trung bình 3×3 lân cận. Pixel đỏ = vùng có **biến thiên nhanh** (cạnh nét chữ, hoặc noise hạt-cát).
+2. **Hàng "Grad-CAM overlay"**: pixel đỏ = vùng CNN **nhìn vào nhiều nhất** để nói "fake"; xanh = vùng bị bỏ qua.
 
-Heatmap trung bình 8 ảnh:
+**Định lượng — số chứng minh "fake có jitter, real thì không"**:
+
+Đo độ lệch `|I − (−1)|` ở các pixel **nền đen tuyệt đối** (pixel mà max của 3×3 lân cận đều `< −0.85`, tức là không gần nét chữ). Trung bình trên 200 ảnh mỗi lớp:
+
+| | Lệch khỏi −1 ở vùng nền |
+|---|---|
+| **Real** | **0.00000** (đúng bằng 0 — MNIST gốc nền sạch tuyệt đối) |
+| **Fake** | **0.00145** |
+| Tỉ lệ | **fake gấp ~1615× real** |
+
+Real MNIST có nền chính xác là `−1` (hoặc `0` trước normalize). Fake cGAN có nhiễu pixel rải rác trong vùng nền — đây không phải lỗi khi xem ảnh, đây là **dấu vân tay** của MLP-MNIST generator.
+
+**Đối chiếu Grad-CAM với high-freq map**:
+
+Pearson correlation tính per-pixel giữa hàng "high-freq" và hàng "Grad-CAM" (200 ảnh mỗi lớp):
+
+| | Pearson r (high-freq, Grad-CAM) |
+|---|---|
+| Real | +0.45 ± 0.09 |
+| Fake | +0.52 ± 0.08 |
+
+Cả hai đều **dương rõ rệt**: CNN nhìn vào đúng vùng có high-frequency. Trên fake r cao hơn vì fake có **nhiều high-freq hơn** để CNN bám vào — chính là jitter pixel-level.
+
+Heatmap trung bình của 200 ảnh:
 
 ![Mean Grad-CAM](output/gradcam_mean.png)
 
-Heatmap fake trung bình **nóng hơn ở thân chữ** so với heatmap real — confirm fake có signal "fake-direction" mạnh hơn ở thân chữ (nơi noise tập trung).
+Trung bình real và fake đều "nóng" ở thân chữ (vì đó là vùng có pixel ≠ 0), nhưng heatmap fake nóng đều trong toàn thân chữ + một phần nền, còn heatmap real chỉ nóng ở các điểm bẻ cong của nét chữ. Khi nhìn trên scatter pixel-level (`gradcam_corr.png`), đám mây fake (đỏ) lệch về phía cao của trục high-freq.
 
 ### 4.3 Diễn giải
 
-CNN hoàn toàn **không được dạy** về Sobel, Laplacian, hay khái niệm "high-frequency noise". Nhưng nó học ra được phân biệt fake bằng cách **nhìn vào noise pixel-level** — chính là thứ mà toán cổ điển (như `Var(Laplacian)`) đo bằng tay.
+CNN hoàn toàn **không được dạy** về Sobel, Laplacian, hay khái niệm "high-frequency noise". Nhưng từ data nó học ra:
 
-→ CNN tự rediscover hand-feature engineering cho đúng vấn đề này. Đây là kết nối thú vị: **convolution học được đóng vai trò cùng loại** với kernel hand-set (Sobel/Laplacian), nhưng tham số được tối ưu bằng gradient descent thay vì đặt sẵn.
+1. **Real có nền tuyệt đối sạch** — bất kỳ pixel nào lệch khỏi `−1` ở vùng nền đều là dấu hiệu fake.
+2. **Fake có jitter pixel-level** — chính là hậu quả của MLP architecture (mỗi pixel output là một hàng `Linear` riêng, không có constraint smoothness không gian).
 
-### 4.4 Stress test: thử trên PGAN-DTD (kiến trúc GAN khác)
+Hai dấu hiệu đó tương đương với cái mà toán cổ điển đo bằng tay (variance Laplacian, sai phân lân cận). Convolution mà CNN học được **đóng vai trò cùng loại** với Sobel/Laplacian kernel, nhưng tham số được tối ưu bằng gradient descent thay vì đặt sẵn.
 
-Giả thuyết "CNN nhỏ phân biệt được fake/real bằng noise" liệu còn đúng khi đổi sang một GAN tốt hơn? Train cùng kiểu CNN (4 conv + FC, 128×128 RGB, dropout 0.3) trên 1500 PGAN-DTD fake + 1500 DTD real, 8 epochs, GPU L4 trên Colab.
+### 4.4 Stress test trên một GAN khác kiến trúc — Progressive GAN
 
-**Kết quả**: val accuracy chỉ **62.50%** — chỉ hơn random guess 50% một chút.
+Câu hỏi: nếu đổi sang một GAN **không phải MLP** thì TinyCNN/TexCNN có còn bắt được không?
+
+#### 4.4.1 Progressive GAN (PGAN) là gì
+
+**Progressive GAN** (Karras et al., ICLR 2018, NVIDIA) là một bước nhảy lớn trong GAN thời điểm 2017–2018. Khác biệt cốt lõi so với cGAN-MLP đời 2014:
+
+| Khía cạnh | cGAN-MLP (2014, dùng ở Section 4) | PGAN (2018) |
+|---|---|---|
+| Generator architecture | MLP thuần (`Linear` chồng lên nhau) | Convolutional, đối xứng dạng pyramid |
+| Upsampling | Không có — output reshape thẳng từ vector | **Nearest-neighbor upsample** + `Conv2d` (cố tình tránh `ConvTranspose2d` để khỏi checkerboard) |
+| Training | Một lần, full resolution | **Progressive**: train ở 4×4 trước → 8×8 → 16×16 → ... → 1024×1024, mỗi lần thêm một block và "fade in" mượt |
+| Normalization | Không | Pixel-wise feature normalization, equalized learning rate |
+| Conditional? | Có (1-hot label nối với z) | **Không** — bản DTD chúng tôi dùng là unconditional |
+
+PGAN là tiền đề trực tiếp cho StyleGAN. Nó được thiết kế để **tránh chính những artifact** của các GAN trước đó (checkerboard từ transposed conv, training instability), nên về lý thuyết phải khó detect hơn nhiều.
+
+#### 4.4.2 Pretrained checkpoint chúng tôi dùng
+
+```python
+pgan = torch.hub.load('facebookresearch/pytorch_GAN_zoo:hub', 'PGAN',
+                      model_name='DTD', pretrained=True, useGPU=True)
+```
+
+- **Trọng số**: do FAIR train sẵn, chúng tôi **không train lại** (lab này không có nguồn lực + không cần thiết).
+- **Dataset huấn luyện**: DTD (Describable Textures Dataset, Cimpoi et al. 2014) — 5640 ảnh texture, 47 lớp mô tả như "lined", "knitted", "marbled", "scaly".
+- **Input của generator**: vector latent `z ∈ ℝ⁵¹²` (Gaussian, không có class label).
+- **Output**: ảnh **3 × 128 × 128 RGB**, giá trị trong khoảng `[−1, 1]` (sau khi `clamp`).
+- **Sampling code**: `noise, _ = pgan.buildNoiseData(n)` rồi `pgan.test(noise)`.
+
+> **Lưu ý kỹ thuật**: `pytorch_GAN_zoo` gọi `optim.Adam` với `betas` kiểu list — PyTorch 2.x reject vì cần tuple/Tensor đồng nhất. Chúng tôi monkey-patch `optim.Adam.__init__` (thấy trong `lab2_cnn_pgan.py`) ép `betas` thành `(float, float)`.
+
+#### 4.4.3 Real images đối chứng — DTD
+
+- 1500 ảnh từ DTD (gộp `train` + `val` + `test` splits cho đủ số).
+- Pipeline: `Resize(128) → CenterCrop(128) → ToTensor → Normalize([0.5]·3, [0.5]·3)` để khớp range `[−1, 1]` của fake.
+
+#### 4.4.4 Classifier — TexCNN
+
+Vì input giờ là 3×128×128 RGB (không phải 1×28×28), TinyCNN của Section 4 không đủ. Chúng tôi dựng **TexCNN** sâu hơn:
+
+```
+Input  (3, 128, 128)
+  Conv(3→16,  3×3) + ReLU + MaxPool(2)   → (16, 64, 64)
+  Conv(16→32, 3×3) + ReLU + MaxPool(2)   → (32, 32, 32)
+  Conv(32→64, 3×3) + ReLU + MaxPool(2)   → (64, 16, 16)
+  Conv(64→64, 3×3) + ReLU + MaxPool(2)   → (64,  8,  8)
+  Flatten                                 → (4096,)
+  Linear(4096 → 128) + ReLU + Dropout(0.3)
+  Linear(128 → 2)                         → logits
+```
+
+- **Tổng tham số**: ~564 k (lớn hơn TinyCNN ~5×, để xử lý input 128×128).
+- **Loss**: cross-entropy 2 lớp.
+- **Optimizer**: Adam, `lr = 5e-4`.
+- **Batch size**: 32, 8 epochs.
+- **Train/val**: 80/20 → 2400 train, 600 val.
+- **Hardware**: Colab GPU L4 (~2 phút sample PGAN + 30 giây training).
+
+#### 4.4.5 Kết quả
+
+Val accuracy chỉ **62.50%** — chỉ hơn random guess 50% một chút. Bảng theo epoch:
 
 | Epoch | Train acc | Val acc |
 |---|---|---|
@@ -141,33 +223,36 @@ Giả thuyết "CNN nhỏ phân biệt được fake/real bằng noise" liệu c
 | 4 | 61.25% | 59.00% |
 | 8 (best) | 65.38% | **62.50%** |
 
-Confusion matrix trên val 600 ảnh:
+Confusion matrix trên 600 ảnh val:
 
 |  | pred = real | pred = fake |
 |---|---|---|
 | **true = real** | 213 (TN) | 92 (FP) |
 | **true = fake** | 133 (FN) | 162 (TP) |
 
-- Real recall: **69.84%**
-- Fake recall: **54.92%**
-- False Negative rate: **45.08%** — gần một nửa fake lọt qua detector
+- Real recall: 69.84%
+- Fake recall: 54.92%
+- False Negative rate: **45.08%** — gần một nửa fake lọt qua detector. Trong môi trường thực tế (phát hiện ảnh AI giả mạo), tỉ lệ này không thể chấp nhận được.
 
-**Đối chiếu hand-feature**: trên cùng PGAN-DTD, `Var(Laplacian)` cho Cohen's d = -0.19 (negligible, ngược dấu cGAN). Không phân biệt được.
+**Đối chiếu hand-feature**: trên cùng PGAN-DTD, `Var(Laplacian)` cho Cohen's d = −0.19 (effect size negligible, đổi dấu so với cGAN-MNIST nơi d = +1.08). Không phân biệt được.
 
-**Tổng kết stress test**:
+#### 4.4.6 Tổng kết stress test
 
 | Method | cGAN-MNIST | PGAN-DTD |
 |---|---|---|
-| Hand-feature `Var(Lap)` | d = +1.08 (STRONG) | d = -0.19 (negligible) |
-| CNN (small) | val acc **98.78%** | val acc **62.50%** |
+| Hand-feature `Var(Lap)` | d = +1.08 (mạnh) | d = −0.19 (~0) |
+| CNN nhỏ (TinyCNN/TexCNN) | val acc **98.78%** | val acc **62.50%** |
 
-→ **Cả hai phương pháp đều fail trên PGAN-DTD**.
+→ **Cả hai phương pháp đều gãy trên PGAN-DTD.**
 
-**Lý do**:
-- cGAN dùng MLP thuần (Mirza & Osindero 2014, kiến trúc cũ): mỗi pixel output tính độc lập, để lại jitter pixel-level — **dễ detect**.
-- PGAN dùng nearest-neighbor upsample + conv (Karras et al. 2018, có thiết kế tránh checkerboard): output mượt, không jitter, mode-averaging texture — **khó detect**.
+**Tại sao**: cGAN-MLP để lại jitter pixel-level (Section 4.2 đo được tỉ lệ ~1615×), **PGAN không có cái đó** — nearest-neighbor upsample + conv tạo output mượt + mode-averaging texture, không có chữ ký nhanh nào để CNN nhỏ bám vào. Detection difficulty là một **hàm của generator architecture sophistication**, và PGAN cố tình được thiết kế để né các artifact mà classical CV / small CNN dựa vào.
 
-→ Detection difficulty là một hàm của generator architecture sophistication. Modern GAN được thiết kế để **tránh chính những artifact mà classical CV và small CNN dựa vào**. Đây là cuộc chạy đua arms race giữa generator và detector.
+#### 4.4.7 Kế hoạch nâng cấp (sẽ làm trong Section 5)
+
+Hai mở rộng cần thử:
+
+1. **Thêm benchmark thứ 3 — BigGAN-128 trên ImageNet**: PGAN-DTD là *unconditional*, kiến trúc 2018. Để câu chuyện đầy đủ cho "GAN có điều kiện chất lượng cao", chúng tôi thêm **BigGAN-128** (DeepMind, Brock et al. 2018) — class-conditional 1000 lớp ImageNet, conv với spectral normalization và class-conditional BatchNorm. Đây là "good cGAN" thực thụ.
+2. **Detector mạnh hơn — ResNet18 transfer learning**: TexCNN tự train chỉ ~564 k params, không đủ capacity cho texture phức tạp. Dùng ResNet18 pretrained ImageNet (~11 M params) thay backbone, freeze layers đầu, fine-tune cuối — mục tiêu đẩy PGAN/BigGAN accuracy từ 62.5% lên 80%+.
 
 ## 5. Hạn chế
 

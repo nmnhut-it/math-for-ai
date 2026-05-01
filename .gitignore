@@ -34,6 +34,9 @@ Thumbs.db
 lab2_cnn/output/dataset.pt
 lab2_cnn/output/dataset_pgan.pt
 
+# Reference papers (kept locally, not in repo)
+lab2_cnn/colab_result/*.pdf
+
 # Node deps for docx skill (build_docx.js needs `npm install docx` to run)
 lab2_cnn/node_modules/
 lab2_cnn/package-lock.json

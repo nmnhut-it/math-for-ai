@@ -14,21 +14,31 @@ math-for-ai/
 │   ├── report.txt              # written report (Vietnamese)
 │   ├── report.docx
 │   └── report.pdf
-├── lab2/                       # Lab 2 — GAN frequency fingerprint
+├── lab2/                       # Lab 2 — GAN frequency fingerprint (FFT)
 │   ├── lab2.py                 # 2-experiment FFT analysis
 │   ├── lab2_models.py          # ConditionalGenerator + Discriminator only
 │   ├── report.md               # markdown report (convert via pandoc)
 │   └── output/
 │       ├── cG_final.pth        # 30-epoch cGAN Generator (reusable)
 │       ├── cD_final.pth
-│       ├── results.txt
-│       ├── exp1_cgan_samples.png   # in-house cGAN-MNIST samples
-│       ├── exp1_mnist_samples.png
-│       ├── exp1_fft.png            # FFT panels: real, fake, diff
-│       ├── exp2_pgan_samples.png   # open-weight PGAN-DTD samples
-│       ├── exp2_dtd_samples.png
-│       ├── exp2_fft.png
-│       └── combined_radial.png     # ⭐ key chart: radial freq profile both exps
+│       └── ...                 # samples, FFT panels, radial profile
+├── lab2_cnn/                   # Lab 2 (final deliverable) — CNN detector
+│   ├── main.py                 # entry point: run full pipeline via subprocess
+│   ├── build_colab.py          # regenerate self-contained colab.ipynb từ src/
+│   ├── colab.ipynb             # self-contained Colab notebook (no clone needed)
+│   ├── COLAB.md
+│   ├── report.md / .docx / .pdf
+│   ├── src/                    # canonical source: 7 numbered scripts
+│   │   ├── exp1_cgan_tinycnn.py   # cGAN-MNIST + TinyCNN scratch (inline cGAN)
+│   │   ├── gradcam_tinycnn.py
+│   │   ├── exp2_pgan_texcnn.py    # PGAN-DTD + TexCNN scratch (baseline)
+│   │   ├── exp3_pgan_resnet.py    # PGAN-DTD + ResNet18 transfer
+│   │   ├── exp4_biggan_resnet.py  # BigGAN-128 + Imagenette + ResNet18
+│   │   ├── gradcam_resnet.py
+│   │   ├── cross_test.py          # cross-GAN generalization test
+│   │   └── make_observation_panel.py  # report figure utility
+│   ├── output/                 # generated artifacts (figures, checkpoints, logs)
+│   └── colab_result/           # Colab GPU run artifacts (committed reference)
 ├── reference/                  # Course materials
 │   ├── make_reference.py       # build reference.docx for pandoc styling
 │   └── chapters/               # AI Security textbook PDFs
@@ -90,6 +100,38 @@ cd lab2 && pandoc report.md -o report.docx --reference-doc=../reference/referenc
 ```
 
 `make_reference.py` requires `ref_default.docx` as input template (in repo root or reference/).
+
+## Lab 2 CNN — Final Deliverable
+
+`lab2_cnn/` là deliverable chính cho lab 2 (CNN detector, thay cho FFT-only của `lab2/`).
+
+```bash
+# Local — full pipeline (CPU/GPU)
+cd lab2_cnn && python main.py
+
+# Chỉ chạy 1 vài step
+python main.py --only exp1 gradcam_tinycnn
+
+# Self-contained Colab notebook (upload → Run all)
+# colab.ipynb — không cần git clone
+```
+
+Sau khi sửa bất kỳ file nào trong `src/`, regenerate notebook:
+
+```bash
+cd lab2_cnn && python build_colab.py
+```
+
+Cấu trúc:
+- `src/exp1_cgan_tinycnn.py` — train cGAN inline (Mirza & Osindero) nếu chưa có checkpoint, sample 10k+10k, train TinyCNN ~99%
+- `src/gradcam_tinycnn.py` — Grad-CAM trên `conv2`, đo correlation high-freq vs attention
+- `src/exp2_pgan_texcnn.py` — TexCNN scratch trên PGAN-DTD ~62% (baseline narrative)
+- `src/exp3_pgan_resnet.py` — ResNet18 transfer 2 phase ~98% (chứng minh detector yếu, không phải PGAN khó)
+- `src/exp4_biggan_resnet.py` — BigGAN-128 + Imagenette + ResNet18 transfer ~99%
+- `src/gradcam_resnet.py` — Grad-CAM `layer4` cho cả PGAN + BigGAN
+- `src/cross_test.py` — load BigGAN-trained ResNet, test thẳng trên PGAN val (kiểm tra generalization cross-GAN)
+
+Source of truth = `src/`. `colab.ipynb` là artifact generated từ `build_colab.py`.
 
 ## Course Site
 

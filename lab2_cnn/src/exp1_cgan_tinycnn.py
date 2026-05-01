@@ -1,5 +1,6 @@
 # TinyCNN phan biet MNIST that vs cGAN fake
-import os, sys
+# Self-contained: inline cGAN (Mirza & Osindero 2014) + tu train neu chua co checkpoint.
+import os
 import numpy as np
 import torch
 import torch.nn as nn
@@ -11,12 +12,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-sys.path.append(os.path.abspath("../lab2"))
-from lab2_models import ConditionalGenerator, Z_DIM, NUM_CLASSES
-
 OUT_DIR     = "output"
 DATA_DIR    = "../data"
-CGAN_CKPT   = "../lab2/output/cG_final.pth"
+CGAN_CKPTS  = ["output/cG_final.pth", "../lab2/output/cG_final.pth"]
 DEVICE      = "cuda" if torch.cuda.is_available() else "cpu"
 N_PER_CLASS = 10000
 BATCH       = 64
@@ -25,7 +23,106 @@ LR          = 1e-3
 SEED        = 42
 VAL_RATIO   = 0.2
 
+Z_DIM       = 100
+NUM_CLASSES = 10
+EMBED_DIM   = 10
+IMG_SIZE    = 28
+IMG_DIM     = IMG_SIZE * IMG_SIZE
+GAN_EPOCHS  = 30
+GAN_BATCH   = 256
+LR_GAN      = 2e-4
+BETA1       = 0.5
+
 os.makedirs(OUT_DIR, exist_ok=True)
+
+
+def _mlp_block(in_f, out_f, dropout=0.0, bn=False):
+    layers = [nn.Linear(in_f, out_f)]
+    if bn:
+        layers.append(nn.BatchNorm1d(out_f))
+    layers.append(nn.LeakyReLU(0.2, inplace=True))
+    if dropout > 0:
+        layers.append(nn.Dropout(dropout))
+    return layers
+
+
+class ConditionalGenerator(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.label_emb = nn.Embedding(NUM_CLASSES, EMBED_DIM)
+        self.net = nn.Sequential(
+            *_mlp_block(Z_DIM + EMBED_DIM, 256, bn=True),
+            *_mlp_block(256, 512, bn=True),
+            *_mlp_block(512, 1024, bn=True),
+            nn.Linear(1024, IMG_DIM), nn.Tanh(),
+        )
+
+    def forward(self, z, y):
+        h = torch.cat([z, self.label_emb(y)], dim=1)
+        return self.net(h).view(-1, 1, IMG_SIZE, IMG_SIZE)
+
+
+class ConditionalDiscriminator(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.label_emb = nn.Embedding(NUM_CLASSES, EMBED_DIM)
+        self.net = nn.Sequential(
+            *_mlp_block(IMG_DIM + EMBED_DIM, 1024, dropout=0.3),
+            *_mlp_block(1024, 512, dropout=0.3),
+            *_mlp_block(512, 256, dropout=0.3),
+            nn.Linear(256, 1), nn.Sigmoid(),
+        )
+
+    def forward(self, x, y):
+        h = torch.cat([x.view(-1, IMG_DIM), self.label_emb(y)], dim=1)
+        return self.net(h)
+
+
+def train_cgan(log_fn):
+    log_fn("\n" + "=" * 60); log_fn("Train cGAN tu dau (chua co checkpoint)"); log_fn("=" * 60)
+    tf = transforms.Compose([transforms.ToTensor(),
+                             transforms.Normalize([0.5], [0.5])])
+    mnist = datasets.MNIST(DATA_DIR, train=True, download=True, transform=tf)
+    loader = DataLoader(mnist, batch_size=GAN_BATCH, shuffle=True, drop_last=True)
+
+    G = ConditionalGenerator().to(DEVICE)
+    D = ConditionalDiscriminator().to(DEVICE)
+    opt_G = optim.Adam(G.parameters(), lr=LR_GAN, betas=(BETA1, 0.999))
+    opt_D = optim.Adam(D.parameters(), lr=LR_GAN, betas=(BETA1, 0.999))
+    bce = nn.BCELoss()
+
+    for epoch in range(1, GAN_EPOCHS + 1):
+        for real, labels in loader:
+            real, labels = real.to(DEVICE), labels.to(DEVICE)
+            bs = real.size(0)
+            ones  = torch.ones (bs, 1, device=DEVICE)
+            zeros = torch.zeros(bs, 1, device=DEVICE)
+            with torch.no_grad():
+                z = torch.randn(bs, Z_DIM, device=DEVICE)
+                fake = G(z, labels)
+            loss_D = (bce(D(real, labels), ones) + bce(D(fake, labels), zeros)) / 2
+            opt_D.zero_grad(); loss_D.backward(); opt_D.step()
+            y_g = torch.randint(0, NUM_CLASSES, (bs,), device=DEVICE)
+            z2 = torch.randn(bs, Z_DIM, device=DEVICE)
+            fake2 = G(z2, y_g)
+            loss_G = bce(D(fake2, y_g), ones)
+            opt_G.zero_grad(); loss_G.backward(); opt_G.step()
+        log_fn(f"  Epoch {epoch:3d}  loss_D={loss_D.item():.3f}  loss_G={loss_G.item():.3f}")
+
+    ckpt = f"{OUT_DIR}/cG_final.pth"
+    torch.save(G.state_dict(), ckpt)
+    log_fn(f"  Saved {ckpt}")
+    return G
+
+
+def load_or_train_cgan(log_fn):
+    for ckpt in CGAN_CKPTS:
+        if os.path.exists(ckpt):
+            G = ConditionalGenerator().to(DEVICE)
+            G.load_state_dict(torch.load(ckpt, map_location=DEVICE, weights_only=True))
+            log_fn(f"  Loaded cGAN checkpoint: {ckpt}")
+            return G
+    return train_cgan(log_fn)
 
 
 def build_dataset(log_fn=print):
@@ -38,8 +135,7 @@ def build_dataset(log_fn=print):
     reals, _ = next(iter(loader))
     log_fn(f"  Reals: {reals.shape}  range [{reals.min():.2f}, {reals.max():.2f}]")
 
-    G = ConditionalGenerator().to(DEVICE)
-    G.load_state_dict(torch.load(CGAN_CKPT, map_location=DEVICE, weights_only=True))
+    G = load_or_train_cgan(log_fn)
     G.train(False)
     z = torch.randn(N_PER_CLASS, Z_DIM, device=DEVICE)
     y_g = torch.randint(0, NUM_CLASSES, (N_PER_CLASS,), device=DEVICE)

@@ -8,8 +8,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-sys.path.append(os.path.abspath("."))
-from lab2_cnn import TinyCNN
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+from exp1_cgan_tinycnn import TinyCNN
 
 OUT_DIR  = "output"
 DEVICE   = "cuda" if torch.cuda.is_available() else "cpu"

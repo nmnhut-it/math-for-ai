@@ -1,70 +1,44 @@
-# Run on Google Colab (GPU)
+# Chạy trên Google Colab (GPU)
 
-CPU train cGAN-MNIST CNN ~5 phút. PGAN-DTD CNN trên CPU ~45 phút (chậm vì 128×128 RGB) — Colab GPU rút xuống ~2-3 phút.
+`colab.ipynb` là **self-contained**: không cần git clone, không cần wget. Toàn bộ code các script trong `src/` đã được embed sẵn vào notebook qua `%%writefile`.
 
-## Setup (paste vào cell đầu của notebook Colab)
+## Cách dùng
 
-```python
-# 1. Mount Google Drive (optional, để save kết quả persistent)
-from google.colab import drive
-drive.mount('/content/drive')
+1. Vào https://colab.research.google.com → **Upload** → chọn `lab2_cnn/colab.ipynb`
+2. Runtime → Change runtime type → **GPU** (T4 free đủ; L4/A100 nhanh hơn)
+3. Runtime → **Run all**
+4. Đợi ~20-25 phút (T4) hoặc ~15 phút (L4) cho full pipeline
 
-# 2. Clone repo (replace với URL repo của bạn)
-!git clone https://github.com/nmnhut-it/math-for-ai.git
-%cd math-for-ai
+## Pipeline (run all 1 lần)
 
-# 3. Verify GPU
-import torch
-print("CUDA available:", torch.cuda.is_available())
-print("Device:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU")
+| Step | Script | Thời gian (L4) | Output |
+| --- | --- | --- | --- |
+| 1 | `exp1_cgan_tinycnn.py`  | ~1.5 phút | cGAN train + TinyCNN ~99% |
+| 2 | `gradcam_tinycnn.py`    | ~5 giây   | Grad-CAM TinyCNN |
+| 3 | `exp2_pgan_texcnn.py`   | ~3 phút   | TexCNN scratch ~62% (baseline) |
+| 4 | `exp3_pgan_resnet.py`   | ~5 phút   | ResNet18 transfer ~98% |
+| 5 | `exp4_biggan_resnet.py` | ~6 phút   | BigGAN+Imagenette ResNet18 ~99% |
+| 6 | `gradcam_resnet.py`     | ~30 giây  | Grad-CAM ResNet18 |
+| 7 | `cross_test.py`         | ~2 phút   | Cross-test BigGAN→PGAN |
 
-# 4. Install (Colab có sẵn torch, torchvision, matplotlib — không cần thêm)
-```
+Lần đầu sẽ download MNIST (~10 MB), DTD (~600 MB), BigGAN weights (~340 MB), Imagenette-160 (~94 MB). Tổng ~1 GB.
 
-## Run cGAN-MNIST CNN
+## Tái build notebook sau khi sửa src/
 
-```python
-%cd /content/math-for-ai/lab2_cnn
-!python lab2_cnn.py
-!python gradcam.py
-```
-
-Output: `output/cnn_best.pth`, `output/confusion_matrix.png`, `output/gradcam_overlay.png`, `output/gradcam_mean.png`.
-
-## Run PGAN-DTD CNN
-
-```python
-%cd /content/math-for-ai/lab2_cnn
-!python lab2_cnn_pgan.py
-```
-
-PGAN sample sẽ tự download model qua `torch.hub.load(...)`. DTD dataset cũng tự download qua torchvision. Cả 2 vào `../data/`.
-
-## Pull results về local
-
-Sau khi train xong:
+Nếu bạn sửa bất kỳ file nào trong `src/`, chạy lại:
 
 ```bash
-# Trong notebook
-!cd /content/math-for-ai && git config user.email "your@email" && git config user.name "Your Name"
-!cd /content/math-for-ai && git add lab2_cnn/output/*.png lab2_cnn/output/*.pth lab2_cnn/output/results*.txt
-!cd /content/math-for-ai && git commit -m "Add Colab GPU training results"
-!cd /content/math-for-ai && git push  # cần personal access token, tạo qua github settings
+cd lab2_cnn && python build_colab.py
 ```
 
-Hoặc download manually:
+Script đọc lại `src/*.py` rồi regenerate `colab.ipynb`. Source of truth nằm ở `src/`, notebook là artifact.
 
-```python
-from google.colab import files
-files.download('output/cnn_pgan_best.pth')
-files.download('output/confusion_matrix_pgan.png')
-files.download('output/results_pgan.txt')
-```
+## Pull kết quả về local
+
+Cuối notebook đã có cell `files.download(...)` sẵn — uncomment + chạy là tải về máy. Hoặc dùng Colab file browser bên trái.
 
 ## Tips
 
-- **Free Colab T4 GPU** đủ — không cần Colab Pro
-- Nếu Colab disconnect: state biến mất → **save vào Drive** (mount `/content/drive`) hoặc commit ngay sau khi xong
-- Train cGAN-MNIST CNN trên Colab GPU: ~30 giây (vs 5 phút CPU)
-- Train PGAN-DTD CNN trên Colab GPU: ~2-3 phút (vs 45 phút CPU)
-- PGAN sample chậm hơn train vì batch nhỏ (16) — không cải thiện lắm với GPU
+- Free T4 đủ cho full pipeline; A100 nhanh hơn ~2× cho ResNet18 nhưng không cần thiết
+- Colab Free disconnect sau ~1.5 giờ idle — full pipeline chạy ~25 phút nên thường không lo
+- Nếu disconnect giữa chừng: kết quả các step xong vẫn còn trong `/content/lab2_cnn/output/`, chỉ cần restart runtime + `Run all` (các checkpoint cached sẽ bỏ qua train lại)

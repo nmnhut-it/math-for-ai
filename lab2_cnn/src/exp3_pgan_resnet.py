@@ -1,5 +1,5 @@
-# ResNet18 transfer tren PGAN-DTD — doi chung voi TexCNN scratch o lab2_cnn_pgan.py
-# Cung dataset, doi detector, de tach effect transfer learning khoi effect GAN architecture
+# ResNet18 transfer trên PGAN-DTD; cùng dataset với TexCNN scratch ở exp2 nhưng đổi
+# detector, để tách hiệu ứng transfer learning ra khỏi hiệu ứng kiến trúc GAN.
 import os, gc
 import numpy as np
 import torch
@@ -13,7 +13,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-# pytorch_GAN_zoo goi Adam voi betas list — PyTorch 2.x reject mix float/Tensor
+# pytorch_GAN_zoo gọi Adam với betas dạng list. PyTorch 2.x từ chối khi mix
+# float với Tensor, nên ép kiểu về float trước khi forward sang Adam gốc.
 _orig_adam_init = optim.Adam.__init__
 def _patched_adam_init(self, params, *args, **kwargs):
     if 'betas' in kwargs and kwargs['betas'] is not None:
@@ -25,7 +26,7 @@ optim.Adam.__init__ = _patched_adam_init
 OUT_DIR     = "output"
 DATA_DIR    = "../data"
 DEVICE      = "cuda" if torch.cuda.is_available() else "cpu"
-N_PER_CLASS = 2500          # match BigGAN setup
+N_PER_CLASS = 2500
 IMG_SIZE    = 128
 BATCH       = 32
 SEED        = 42
@@ -112,7 +113,6 @@ IMAGENET_STD  = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
 
 
 def renormalize_for_imagenet(x):
-    """[-1,1] -> ImageNet stats."""
     x01 = (x + 1) / 2
     return (x01 - IMAGENET_MEAN.to(x.device)) / IMAGENET_STD.to(x.device)
 

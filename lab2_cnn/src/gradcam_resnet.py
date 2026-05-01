@@ -1,5 +1,5 @@
-# Grad-CAM cho ResNet18 transfer (BigGAN + PGAN), target layer = model.layer4
-# Voi input 128x128, layer4 output (B, 512, 4, 4) — upsample CAM len 128x128
+# Grad-CAM cho ResNet18 transfer (BigGAN + PGAN). Target layer = model.layer4;
+# với input 128x128, layer4 trả về feature map (B, 512, 4, 4), upsample lên 128x128.
 import os, sys
 import numpy as np
 import torch
@@ -30,13 +30,11 @@ IMAGENET_STD  = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
 
 
 def renormalize(x):
-    """[-1,1] -> ImageNet stats (giong khi train)."""
     x01 = (x + 1) / 2
     return (x01 - IMAGENET_MEAN.to(x.device)) / IMAGENET_STD.to(x.device)
 
 
 class GradCAM:
-    """Hook-based Grad-CAM."""
     def __init__(self, model, target_layer):
         self.model = model
         self.activations = None
@@ -51,13 +49,12 @@ class GradCAM:
         self.gradients = go[0].detach()
 
     def __call__(self, x, class_idx):
-        """x: (B, 3, 128, 128), input ALREADY in [-1,1]. Returns CAM (B, H, W) in [0,1]."""
         self.model.zero_grad()
         x_norm = renormalize(x)
         logits = self.model(x_norm)
         score = logits[:, class_idx].sum()
         score.backward()
-        weights = self.gradients.mean(dim=(2, 3), keepdim=True)   # (B, 512, 1, 1)
+        weights = self.gradients.mean(dim=(2, 3), keepdim=True)
         cam = (weights * self.activations).sum(dim=1, keepdim=True)
         cam = F.relu(cam)
         cam = F.interpolate(cam, size=x.shape[2:], mode="bilinear", align_corners=False)
@@ -72,7 +69,6 @@ class GradCAM:
 
 
 def overlay_rgb(img, cam, alpha=0.5):
-    """img: (3, H, W) in [-1,1]. cam: (H, W) in [0,1]."""
     img01 = (img + 1) / 2
     img_rgb = img01.permute(1, 2, 0).numpy().clip(0, 1)
     cmap = plt.get_cmap("jet")
@@ -81,7 +77,6 @@ def overlay_rgb(img, cam, alpha=0.5):
 
 
 def run_one(label, ckpt_path, dataset_path, out_png):
-    """Run Grad-CAM on one model + dataset."""
     print(f"\n[{label}] loading {ckpt_path}")
     if not os.path.exists(ckpt_path) or not os.path.exists(dataset_path):
         print(f"  Missing checkpoint or dataset, skipping {label}")
@@ -108,7 +103,6 @@ def run_one(label, ckpt_path, dataset_path, out_png):
     cam_real = gradcam(X_real.clone().requires_grad_(True), class_idx=1)
     cam_fake = gradcam(X_fake.clone().requires_grad_(True), class_idx=1)
 
-    # Logits for confidence display
     with torch.no_grad():
         x_real_n = renormalize(X_real)
         x_fake_n = renormalize(X_fake)
@@ -117,7 +111,6 @@ def run_one(label, ckpt_path, dataset_path, out_png):
     p_real = np.exp(logits_real) / np.exp(logits_real).sum(axis=1, keepdims=True)
     p_fake = np.exp(logits_fake) / np.exp(logits_fake).sum(axis=1, keepdims=True)
 
-    # Layout: 4 rows (real-orig, real-cam, fake-orig, fake-cam) x N_VIS columns
     fig = plt.figure(figsize=(2.0 * N_VIS + 2.5, 8.0))
     gs = fig.add_gridspec(4, N_VIS + 2,
                           width_ratios=[0.7] + [1.0] * N_VIS + [0.06],
@@ -131,7 +124,6 @@ def run_one(label, ckpt_path, dataset_path, out_png):
 
     last_im = None
     for j in range(N_VIS):
-        # Real row 0: original
         img = X_real[j].cpu()
         ax = fig.add_subplot(gs[0, j + 1])
         img01 = ((img + 1) / 2).permute(1, 2, 0).numpy().clip(0, 1)
@@ -139,12 +131,10 @@ def run_one(label, ckpt_path, dataset_path, out_png):
         ax.set_title(f"P(fake)={p_real[j,1]:.2f}", fontsize=9)
         ax.axis("off")
 
-        # Real row 1: gradcam overlay
         ax = fig.add_subplot(gs[1, j + 1])
         ax.imshow(overlay_rgb(img, cam_real[j]))
         ax.axis("off")
 
-        # Fake row 2: original
         imgf = X_fake[j].cpu()
         ax = fig.add_subplot(gs[2, j + 1])
         imgf01 = ((imgf + 1) / 2).permute(1, 2, 0).numpy().clip(0, 1)
@@ -152,19 +142,16 @@ def run_one(label, ckpt_path, dataset_path, out_png):
         ax.set_title(f"P(fake)={p_fake[j,1]:.2f}", fontsize=9)
         ax.axis("off")
 
-        # Fake row 3: gradcam overlay
         ax = fig.add_subplot(gs[3, j + 1])
         last_im = ax.imshow(overlay_rgb(imgf, cam_fake[j]))
         ax.axis("off")
 
-    # Row labels
     for r, txt in enumerate(row_titles):
         ax = fig.add_subplot(gs[r, 0])
         ax.text(0.95, 0.5, txt, transform=ax.transAxes,
                 ha="right", va="center", fontsize=10, fontweight="bold")
         ax.axis("off")
 
-    # Colorbar dummy (for jet 0..1)
     cax = fig.add_subplot(gs[1:4:2, -1])
     sm = plt.cm.ScalarMappable(cmap="jet", norm=plt.Normalize(0, 1))
     sm.set_array([])

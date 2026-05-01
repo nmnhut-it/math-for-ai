@@ -1,7 +1,7 @@
-# Ghep cac PNG mau (cGAN/MNIST/PGAN/DTD) thanh cac hinh dung trong report:
-#   - cgan_panel.png       1x2 cGAN | MNIST (cho Muc 2)
-#   - pgan_panel.png       1x2 PGAN | DTD   (cho Muc 4)
-#   - observation_panels.png 2x2 ca 4 panel (giu cho backward compat / tai lieu khac)
+# Ghép các PNG mẫu (cGAN/MNIST/PGAN/DTD) thành panel để dán vào report:
+#   cgan_panel.png         1x2 cGAN vs MNIST (Mục 2)
+#   pgan_panel.png         1x2 PGAN vs DTD (Mục 4)
+#   observation_panels.png 2x2 cả bốn panel (giữ cho tài liệu khác)
 from PIL import Image, ImageDraw, ImageFont
 import os
 

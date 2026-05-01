@@ -1,4 +1,5 @@
-# TexCNN tu dau de phat hien PGAN-DTD fake — bai test xem detector nho co bam noi PGAN khong
+# TexCNN train từ đầu để phát hiện PGAN-DTD fake.
+# Mục đích: kiểm tra detector nhỏ có theo nổi modern GAN hay không.
 import os, gc
 import numpy as np
 import torch
@@ -12,7 +13,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-# pytorch_GAN_zoo goi Adam voi betas list — PyTorch 2.x reject mix float/Tensor, coerce ve float
+# pytorch_GAN_zoo gọi Adam với betas dạng list. PyTorch 2.x từ chối khi mix
+# float với Tensor, nên ép kiểu về float trước khi forward sang Adam gốc.
 _orig_adam_init = optim.Adam.__init__
 def _patched_adam_init(self, params, *args, **kwargs):
     if 'betas' in kwargs and kwargs['betas'] is not None:
@@ -39,7 +41,6 @@ os.makedirs(OUT_DIR, exist_ok=True)
 def build_dataset(log_fn=print):
     log_fn("\n" + "=" * 60); log_fn("Build PGAN-DTD dataset"); log_fn("=" * 60)
 
-    # PGAN fakes
     pgan = torch.hub.load('facebookresearch/pytorch_GAN_zoo:hub', 'PGAN',
                           model_name='DTD', pretrained=True,
                           useGPU=(DEVICE == 'cuda'))
@@ -53,11 +54,11 @@ def build_dataset(log_fn=print):
             x = pgan.test(noise)
         fakes.append(x.cpu()); del x, noise; gc.collect()
     fakes = torch.cat(fakes)
-    # Normalize PGAN output ve [-1, 1] de match DTD reals
+    # Ép PGAN output về [-1, 1] cho khớp với DTD reals đã chuẩn hoá.
     fakes = fakes.clamp(-1, 1)
     log_fn(f"  Fakes: {fakes.shape}  range [{fakes.min():.2f}, {fakes.max():.2f}]")
 
-    # DTD reals (combine 'train' va 'val' splits de du data)
+    # Gộp cả ba split của DTD vì mỗi split có ~1880 ảnh, gộp lại mới đủ N_PER_CLASS.
     tf = transforms.Compose([
         transforms.Resize(IMG_SIZE),
         transforms.CenterCrop(IMG_SIZE),
@@ -97,10 +98,10 @@ class TexCNN(nn.Module):
         self.drop  = nn.Dropout(0.3)
 
     def forward(self, x):
-        x = self.pool(F.relu(self.conv1(x)))   # (16, 64, 64)
-        x = self.pool(F.relu(self.conv2(x)))   # (32, 32, 32)
-        x = self.pool(F.relu(self.conv3(x)))   # (64, 16, 16)
-        x = self.pool(F.relu(self.conv4(x)))   # (64,  8,  8)
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = self.pool(F.relu(self.conv3(x)))
+        x = self.pool(F.relu(self.conv4(x)))
         x = x.flatten(1)
         x = self.drop(F.relu(self.fc1(x)))
         return self.fc2(x)

@@ -1,5 +1,5 @@
-# Grad-CAM (Selvaraju et al. 2017) cho TinyCNN, va do tuong quan voi high-freq residual
-# de chi ra CNN dua quyet dinh "fake" tren vung pixel jitter
+# Grad-CAM cho TinyCNN, kèm tương quan với high-freq residual để xem CNN có thật
+# bám vào vùng pixel jitter (dấu vân tay đặc trưng của cGAN MLP) hay không.
 import os, sys
 import numpy as np
 import torch
@@ -28,13 +28,12 @@ class GradCAM:
         target_layer.register_full_backward_hook(self._bwd_hook)
 
     def _fwd_hook(self, module, inp, out):
-        self.activations = out.detach()              # (B, K, H, W)
+        self.activations = out.detach()
 
     def _bwd_hook(self, module, grad_in, grad_out):
-        self.gradients = grad_out[0].detach()        # (B, K, H, W)
+        self.gradients = grad_out[0].detach()
 
     def __call__(self, x, class_idx):
-        """x: (B,1,28,28). Returns cam: (B, H_in, W_in) in [0, 1]."""
         self.model.zero_grad()
         logits = self.model(x)
         score  = logits[:, class_idx].sum()
@@ -54,11 +53,8 @@ class GradCAM:
 
 
 def high_freq_residual(x, kernel_size=3):
-    """|I - blur(I)|: do high-frequency content cua moi pixel.
-
-    x: (B, 1, H, W) trong [-1, 1]. Tra ve (B, H, W) trong [0, 1] (per-image normalize).
-    Pixel jitter (MLP-cGAN signature) -> residual lon, dot do.
-    """
+    # |I - blur(I)| đo lượng năng lượng tần số cao tại từng pixel; pixel jitter của
+    # cGAN-MLP biểu hiện thành các đốm residual lớn.
     blur = F.avg_pool2d(x, kernel_size=kernel_size, stride=1,
                         padding=kernel_size // 2)
     res = (x - blur).abs().squeeze(1)
@@ -70,7 +66,6 @@ def high_freq_residual(x, kernel_size=3):
     return out.cpu().numpy()
 
 
-# Load model + data
 print("Loading model + dataset...")
 model = TinyCNN().to(DEVICE)
 model.load_state_dict(torch.load(f"{OUT_DIR}/cnn_best.pth", map_location=DEVICE,
@@ -94,16 +89,13 @@ X_fake = X[fake_sel].to(DEVICE)
 print(f"  Selected {N_VIS} real + {N_VIS} fake from val set")
 
 
-# Compute Grad-CAM (huong class "fake"=1)
 gradcam = GradCAM(model, target_layer=model.conv2)
 cam_real = gradcam(X_real.clone().requires_grad_(True), class_idx=1)
 cam_fake = gradcam(X_fake.clone().requires_grad_(True), class_idx=1)
 
-# Compute high-freq residual
 res_real = high_freq_residual(X_real)
 res_fake = high_freq_residual(X_fake)
 
-# Logits
 with torch.no_grad():
     logits_real = model(X_real).cpu().numpy()
     logits_fake = model(X_fake).cpu().numpy()
@@ -111,9 +103,7 @@ prob_real = np.exp(logits_real) / np.exp(logits_real).sum(axis=1, keepdims=True)
 prob_fake = np.exp(logits_fake) / np.exp(logits_fake).sum(axis=1, keepdims=True)
 
 
-# Pearson correlation: tinh giua high-freq residual va Grad-CAM, per-image
 def pearson_per_image(a, b):
-    """a, b: (B, H, W). Returns array of B Pearson r."""
     out = np.zeros(a.shape[0])
     for i in range(a.shape[0]):
         av = a[i].ravel(); bv = b[i].ravel()
@@ -123,7 +113,7 @@ def pearson_per_image(a, b):
     return out
 
 
-# Pool full val set de tinh r tin cay (khong chi 4 sample)
+# Tính trên 200 ảnh mỗi lớp để có Pearson r đáng tin (4 mẫu không đủ).
 print("Computing Pearson r over full val set...")
 N_CORR = 200
 real_pool_sel = rng.choice(real_pool, size=N_CORR, replace=False)
@@ -137,17 +127,10 @@ res_fake_full = high_freq_residual(X_fake_full)
 r_real = pearson_per_image(res_real_full, cam_real_full)
 r_fake = pearson_per_image(res_fake_full, cam_fake_full)
 
-# MNIST: real co background hoan toan -1 (pure black). Fake (cGAN-MLP)
-# co jitter nho khien background lech khoi -1. Metric truc tiep: mean
-# |x - (-1)| trong pure-background mask.
-# Pure-background mask: pixel va all 8 neighbors deu < -0.95 (no
-# digit edge gan).
+# MNIST thật có nền hoàn toàn -1 (đen tuyệt đối); cGAN-MLP để lại jitter nhỏ
+# khiến nền lệch khỏi -1. Đo trực tiếp bằng mean |x − (−1)| trên các pixel mà
+# cả 3×3 lân cận đều rất tối (xa stroke chữ).
 def pure_background_deviation(x, neighbor_thresh=-0.85):
-    """Trung binh deviation tu -1 trong pure-bg pixels (xa moi edge).
-
-    pure-bg: max trong 3x3 neighborhood < neighbor_thresh, tuc la
-    moi pixel xung quanh deu rat toi (khong gan stroke nao).
-    """
     nbh_max = F.max_pool2d(x, kernel_size=3, stride=1, padding=1)
     pure_mask = (nbh_max < neighbor_thresh).squeeze(1).float()
     deviation = (x.squeeze(1) - (-1.0)).abs()
@@ -163,9 +146,7 @@ print(f"  Pure-background deviation from -1: REAL={E_bg_real.mean():.5f}  "
       f"ratio FAKE/REAL = {E_bg_fake.mean() / max(E_bg_real.mean(), 1e-8):.1f}x")
 
 
-# Visualize overlay
 def overlay_img(img, cam, alpha=0.5):
-    """img in [-1,1]. cam in [0,1]. Returns RGB."""
     img01 = (img + 1) / 2
     img_rgb = np.stack([img01] * 3, axis=-1)
     cmap = plt.get_cmap("jet")
@@ -173,8 +154,7 @@ def overlay_img(img, cam, alpha=0.5):
     return (1 - alpha) * img_rgb + alpha * cam_rgb
 
 
-# Layout: them 1 cot trai cho label, 1 cot phai cho colorbar
-# width_ratios: [label, img, img, ..., cbar]
+# Layout: cột 0 là label, cột cuối là colorbar, ở giữa là N_VIS ô ảnh.
 fig = plt.figure(figsize=(2.0 * N_VIS + 3.4, 9.5))
 gs = fig.add_gridspec(6, N_VIS + 2,
                       width_ratios=[0.6] + [1.0] * N_VIS + [0.08],
@@ -189,7 +169,6 @@ row_titles = [
     "FAKE (cGAN)\nGrad-CAM\noverlay",
 ]
 
-# Real rows (cot 1..N_VIS, vi cot 0 la label slot)
 for j in range(N_VIS):
     img = X_real[j, 0].cpu().numpy()
     ax = fig.add_subplot(gs[0, j + 1])
@@ -205,7 +184,6 @@ for j in range(N_VIS):
     ax.imshow(overlay_img(img, cam_real[j]))
     ax.axis("off")
 
-# Fake rows
 for j in range(N_VIS):
     img = X_fake[j, 0].cpu().numpy()
     ax = fig.add_subplot(gs[3, j + 1])
@@ -221,14 +199,12 @@ for j in range(N_VIS):
     ax.imshow(overlay_img(img, cam_fake[j]))
     ax.axis("off")
 
-# Row labels (cot 0, axis off)
 for r, txt in enumerate(row_titles):
     ax = fig.add_subplot(gs[r, 0])
     ax.text(0.95, 0.5, txt, transform=ax.transAxes,
             ha="right", va="center", fontsize=9.5, fontweight="bold")
     ax.axis("off")
 
-# Colorbar (1 cho high-freq REAL, 1 cho high-freq FAKE; jet, [0,1])
 cax = fig.add_subplot(gs[1:3, -1])
 cbar = fig.colorbar(im_res_r, cax=cax)
 cbar.set_label("0 = thap     →     1 = cao\n(high-freq / attention)",
@@ -252,7 +228,6 @@ plt.close()
 print(f"Saved {OUT_DIR}/gradcam_overlay.png")
 
 
-# Mean Grad-CAM real vs fake (giu nhu cu nhung nho hon)
 fig, axes = plt.subplots(1, 3, figsize=(10.5, 3.5),
                          gridspec_kw={"width_ratios": [1, 1, 0.05]})
 im0 = axes[0].imshow(cam_real_full.mean(0), cmap="jet", vmin=0, vmax=1)
@@ -271,9 +246,7 @@ plt.close()
 print(f"Saved {OUT_DIR}/gradcam_mean.png")
 
 
-# Scatter chung minh correlation
 fig, ax = plt.subplots(figsize=(6.5, 4.5))
-# Dung 4 anh fake da pick cho clarity, plot pixel-level scatter
 for j in range(N_VIS):
     ax.scatter(res_fake[j].ravel(), cam_fake[j].ravel(),
                s=4, alpha=0.25, label=f"fake #{j}" if j < 1 else None,
@@ -295,7 +268,6 @@ fig.savefig(f"{OUT_DIR}/gradcam_corr.png", dpi=140, bbox_inches="tight")
 plt.close()
 print(f"Saved {OUT_DIR}/gradcam_corr.png")
 
-# Save log so the report can quote
 with open(f"{OUT_DIR}/gradcam.log", "w", encoding="utf-8") as fh:
     fh.write(f"N per class: {N_CORR}\n")
     fh.write(f"Pearson(high-freq residual, Grad-CAM)  REAL: "

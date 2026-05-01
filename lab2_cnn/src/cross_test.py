@@ -1,6 +1,6 @@
-# Cross-test: ResNet18 da train tren BigGAN-Imagenette, dem test truc tiep tren PGAN-DTD val
-# Khong retrain. Neu accuracy cao -> phuong phap tong quat hoa duoc;
-# neu thap -> dung la white-box, can biet GAN va dataset moi train detector duoc.
+# Cross-test: ResNet18 đã train trên BigGAN-Imagenette, đem test trực tiếp trên
+# PGAN-DTD val. Không retrain. Mục đích: detector có tổng quát hoá cross-GAN không,
+# hay bắt buộc phải train riêng cho từng cặp GAN/dataset.
 import os, gc, sys
 import numpy as np
 import torch
@@ -10,7 +10,8 @@ import torchvision
 from torch.utils.data import DataLoader
 from torchvision import transforms, models
 
-# pytorch_GAN_zoo goi Adam voi betas list. PyTorch 2.x reject mix float/Tensor.
+# pytorch_GAN_zoo gọi Adam với betas dạng list. PyTorch 2.x từ chối khi mix
+# float với Tensor, nên ép kiểu về float trước khi forward sang Adam gốc.
 _orig_adam_init = optim.Adam.__init__
 def _patched_adam_init(self, params, *args, **kwargs):
     if 'betas' in kwargs and kwargs['betas'] is not None:
@@ -21,7 +22,12 @@ optim.Adam.__init__ = _patched_adam_init
 
 OUT_DIR  = "output"
 DATA_DIR = "../data"
-CKPT     = "colab_result/cnn_biggan_resnet_best.pth"
+# Ưu tiên checkpoint vừa train trong session hiện tại; rơi xuống bản đã commit
+# trong colab_result/ nếu chưa chạy exp4.
+CKPT_CANDIDATES = [
+    "output/cnn_biggan_resnet_best.pth",
+    "colab_result/cnn_biggan_resnet_best.pth",
+]
 N        = 500
 IMG_SIZE = 128
 BS_PGAN  = 16
@@ -30,6 +36,8 @@ SEED     = 42
 
 
 def pick_device():
+    if torch.cuda.is_available():
+        return torch.device("cuda"), "cuda"
     try:
         import torch_directml
         return torch_directml.device(), "directml"
@@ -134,11 +142,16 @@ def main():
 
     log("=" * 60); log("Load detector ResNet18(BigGAN-Imagenette)"); log("=" * 60)
     model = build_resnet18_head()
-    state = torch.load(CKPT, map_location="cpu", weights_only=True)
+    ckpt_path = next((p for p in CKPT_CANDIDATES if os.path.exists(p)), None)
+    if ckpt_path is None:
+        log(f"  ERROR: khong tim thay checkpoint trong {CKPT_CANDIDATES}")
+        log(f"  Chay exp4_biggan_resnet.py truoc roi quay lai cross_test.")
+        sys.exit(1)
+    state = torch.load(ckpt_path, map_location="cpu", weights_only=True)
     model.load_state_dict(state)
     model.train(False)
     model = model.to(DEVICE)
-    log(f"  Loaded {CKPT}")
+    log(f"  Loaded {ckpt_path}")
     log("")
 
     log("=" * 60); log("Inference"); log("=" * 60)

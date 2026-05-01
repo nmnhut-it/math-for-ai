@@ -1,5 +1,5 @@
-# ResNet18 transfer tren BigGAN-128 fakes vs Imagenette reals
-# Reals: Imagenette-160 (10 lop ImageNet, ~94 MB, public download)
+# ResNet18 transfer trên BigGAN-128 fakes vs Imagenette reals.
+# Reals: Imagenette-160 (10 lớp ImageNet, ~94 MB).
 import os, gc, sys, urllib.request, tarfile
 import numpy as np
 import torch
@@ -60,7 +60,7 @@ def load_imagenette_reals(n, log):
             continue
         for cls in sorted(os.listdir(split_dir)):
             cls_dir = os.path.join(split_dir, cls)
-            # skip metadata files like .DS_Store, Thumbs.db
+            # Bỏ qua các entry hidden / metadata như .DS_Store, Thumbs.db.
             if not os.path.isdir(cls_dir) or cls.startswith('.'):
                 continue
             for f in os.listdir(cls_dir):
@@ -145,7 +145,6 @@ def freeze_backbone(model):
 
 
 def unfreeze_for_finetune(model):
-    """Unfreeze layer4 + fc only — phan con lai van freeze."""
     for name, p in model.named_parameters():
         p.requires_grad = name.startswith("fc.") or name.startswith("layer4.")
 
@@ -154,16 +153,15 @@ def count_trainable(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
-# ResNet18 pretrained expects ImageNet normalization; chung ta dang giu
-# du lieu trong [-1, 1] (Normalize([0.5]·3, [0.5]·3)). Convert sang
-# ImageNet stats khi forward.
+# ResNet18 pretrained yêu cầu chuẩn hoá theo ImageNet stats; data đang ở
+# [-1, 1] vì Normalize([0.5]*3, [0.5]*3), nên cần đưa lại về [0, 1] rồi áp
+# mean/std của ImageNet ngay trong forward.
 IMAGENET_MEAN = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
 IMAGENET_STD  = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
 
 
 def renormalize_for_imagenet(x):
-    """Input x trong [-1, 1] (mean=0.5,std=0.5). Convert ve ImageNet stats."""
-    x01 = (x + 1) / 2  # back to [0, 1]
+    x01 = (x + 1) / 2
     return (x01 - IMAGENET_MEAN.to(x.device)) / IMAGENET_STD.to(x.device)
 
 
@@ -172,10 +170,8 @@ def train_one_epoch(model, loader, opt, loss_fn, augment=True):
     total_loss = 0.0; correct = 0; n = 0
     for X, y in loader:
         X, y = X.to(DEVICE), y.to(DEVICE)
-        if augment:
-            # Random horizontal flip
-            if torch.rand(1).item() < 0.5:
-                X = torch.flip(X, dims=[3])
+        if augment and torch.rand(1).item() < 0.5:
+            X = torch.flip(X, dims=[3])
         X = renormalize_for_imagenet(X)
         logits = model(X)
         loss = loss_fn(logits, y)
@@ -302,7 +298,6 @@ def main():
     plot_confusion(cm, "confusion_matrix_biggan.png",
                    "BigGAN-128 vs Imagenette: ResNet18 transfer")
 
-    # Save sample grid
     log("\nSaving sample grid...")
     sample_grid(X, y, log)
 
@@ -314,7 +309,6 @@ def main():
 
 
 def sample_grid(X, y, log, n=4):
-    """Plot 1 hang n real, 1 hang n fake — minh hoa cho report."""
     real_idx = np.where(y.numpy() == 0)[0][:n]
     fake_idx = np.where(y.numpy() == 1)[0][:n]
     fig, axes = plt.subplots(2, n, figsize=(2.2 * n, 4.6))

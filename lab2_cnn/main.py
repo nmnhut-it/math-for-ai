@@ -1,7 +1,7 @@
-# Lab 2 CNN — entry point: chay full pipeline.
-# Tat ca .py thuc te nam trong src/, main.py chi orchestrate.
-# Cwd cua moi step luon = thu muc lab2_cnn/ (cha cua main.py),
-# de paths "output/" va "../data" hoat dong dung nhu trong moi script.
+# Lab 2 CNN: entry point chạy full pipeline.
+# Code thật nằm trong src/, file này chỉ orchestrate qua subprocess.
+# Mỗi step được spawn với cwd = lab2_cnn/, để các path "output/" và "../data"
+# trong từng script vẫn trỏ đúng.
 import argparse
 import os
 import subprocess
@@ -37,9 +37,9 @@ def run_step(mod_name, label, dry_run):
 
 def main():
     ap = argparse.ArgumentParser(description="Run lab2_cnn pipeline")
-    ap.add_argument("--only", nargs="+", help="chi chay nhung step nay (theo tu khoa, vi du: exp1 gradcam_resnet)")
-    ap.add_argument("--dry-run", action="store_true", help="in lenh khong chay")
-    ap.add_argument("--keep-going", action="store_true", help="khong stop khi step bi loi")
+    ap.add_argument("--only", nargs="+", help="chỉ chạy step có tên chứa từ khoá này (vd: exp1 gradcam_resnet)")
+    ap.add_argument("--dry-run", action="store_true", help="in lệnh nhưng không chạy")
+    ap.add_argument("--keep-going", action="store_true", help="không dừng khi một step lỗi")
     args = ap.parse_args()
 
     selected = STEPS

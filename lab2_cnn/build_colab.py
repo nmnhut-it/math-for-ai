@@ -1,9 +1,9 @@
-"""Build self-contained lab2_cnn/colab.ipynb tu src/*.py.
+"""Build colab.ipynb self-contained từ các file trong src/.
 
-Output: colab.ipynb chua %%writefile cells (extract code) + !python cells (run) +
-display cells. Upload thang len Colab, Run all, khong can git clone.
+Notebook gồm các %%writefile cell (ghi code ra đĩa) + !python cell (chạy) + cell
+hiển thị kết quả. Upload thẳng lên Colab và Run all là xong, không cần git clone.
 
-Chay lai script nay sau khi sua bat ky file nao trong src/.
+Chạy lại script này sau khi sửa bất kỳ file nào trong src/.
 """
 import json
 import os
@@ -60,16 +60,17 @@ def show_cell(label, txt_path, img_paths):
 cells = []
 
 cells.append(md(
-    "# Lab 2 — Phat hien anh GAN gia mao: 3 GAN + Grad-CAM (Colab GPU)\n\n"
-    "**Self-contained**: khong can git clone. Toan bo code embed truc tiep trong notebook qua `%%writefile`.\n\n"
-    "**Truoc khi chay**: Runtime - Change runtime type - **GPU** (T4 free / L4 Pro / A100).\n\n"
-    "Pipeline (`Run all` la xong, ~20-25 phut tren L4):\n\n"
-    "1. cGAN-MNIST (in-house, MLP) -> TinyCNN scratch ~99% + Grad-CAM\n"
-    "2. PGAN-DTD scratch -> TexCNN ~62% (baseline narrative \"PGAN kho\")\n"
-    "3. PGAN-DTD transfer -> ResNet18 ~99% (cuu narrative)\n"
-    "4. BigGAN-128 + Imagenette transfer -> ResNet18 ~99%\n"
-    "5. Grad-CAM ResNet18 (PGAN + BigGAN)\n"
-    "6. Cross-test BigGAN->PGAN (test tinh tong quat)\n"
+    "# Lab 2: Phát hiện ảnh GAN giả mạo bằng CNN (Colab GPU)\n\n"
+    "**Self-contained**: không cần git clone. Code của từng thí nghiệm được "
+    "ghi thẳng vào notebook qua `%%writefile`, chạy xong là cell kế tiếp đọc được.\n\n"
+    "**Trước khi chạy**: Runtime > Change runtime type > **GPU** (T4 free hoặc L4).\n\n"
+    "Pipeline `Run all` (~20-25 phút trên L4):\n\n"
+    "1. cGAN-MNIST in-house (MLP) + TinyCNN scratch (~99%) và Grad-CAM\n"
+    "2. PGAN-DTD + TexCNN scratch (~62%, baseline)\n"
+    "3. PGAN-DTD + ResNet18 transfer (~99%)\n"
+    "4. BigGAN-128 + Imagenette + ResNet18 transfer (~99%)\n"
+    "5. Grad-CAM ResNet18 cho PGAN và BigGAN\n"
+    "6. Cross-test: ResNet18(BigGAN) áp lên PGAN để kiểm tra tính tổng quát\n"
 ))
 
 cells.append(md("## 1. Setup runtime"))
@@ -84,7 +85,7 @@ cells.append(code(
 ))
 cells.append(code("!pip install -q pytorch-pretrained-biggan"))
 cells.append(code(
-    "# Tao thu muc lam viec, output, va data sibling theo cau truc local.\n"
+    "# Tạo thư mục làm việc và data sibling theo đúng cấu trúc khi chạy local.\n"
     "import os\n"
     "os.makedirs('/content/lab2_cnn', exist_ok=True)\n"
     "os.makedirs('/content/data', exist_ok=True)\n"
@@ -94,8 +95,9 @@ cells.append(code(
 ))
 
 cells.append(md(
-    "## 2. Embed source code (writefile cells)\n\n"
-    "Moi cell duoi day extract 1 script tu src/ ra dia. Khong run gi het, chi ghi file."
+    "## 2. Ghi source code ra đĩa\n\n"
+    "Mỗi cell dưới đây dùng `%%writefile` để xuất một script trong `src/` thành "
+    "file Python tại `/content/lab2_cnn/`. Chưa chạy gì."
 ))
 SCRIPTS = [
     "exp1_cgan_tinycnn.py",
@@ -111,48 +113,53 @@ for s in SCRIPTS:
 
 cells.append(md(
     "## 3. cGAN-MNIST + TinyCNN scratch\n\n"
-    "Train cGAN 30 epoch (~1 phut tren GPU) neu chua co checkpoint. TinyCNN 105 k params train tu dau tren 10k+10k.\n\n"
-    "~1.5 phut tong."
+    "Train cGAN 30 epoch (~1 phút trên GPU) nếu chưa có checkpoint, sau đó "
+    "TinyCNN 105k params train từ đầu trên 10k+10k. Tổng khoảng 1.5 phút."
 ))
 cells.append(run_cell("exp1_cgan_tinycnn.py"))
 
 cells.append(md(
     "## 4. Grad-CAM TinyCNN\n\n"
-    "Grad-CAM tren `conv2`, kem do tuong quan (high-freq, attention).\n\n~5 giay."
+    "Grad-CAM trên `conv2`, kèm hệ số tương quan giữa high-freq residual và "
+    "attention map. ~5 giây."
 ))
 cells.append(run_cell("gradcam_tinycnn.py"))
 
 cells.append(md(
     "## 5. PGAN-DTD + TexCNN scratch (baseline)\n\n"
-    "Sample 1500 PGAN fakes + 1500 DTD reals. TexCNN 564 k params train tu dau. Ket qua ~62%.\n\n~3 phut."
+    "Sample 1500 PGAN fakes + 1500 DTD reals. TexCNN 564k params train từ đầu, "
+    "kết quả khoảng 62%. ~3 phút."
 ))
 cells.append(run_cell("exp2_pgan_texcnn.py"))
 
 cells.append(md(
     "## 6. PGAN-DTD + ResNet18 transfer\n\n"
-    "ResNet18 pretrained ImageNet, transfer 2 phase (head 3 epoch + finetune 12 epoch). Ky vong ~98%.\n\n~5-6 phut."
+    "ResNet18 pretrained ImageNet, transfer 2 phase: head 3 epoch rồi unfreeze "
+    "layer4 finetune 12 epoch. Kỳ vọng khoảng 98%. ~5-6 phút."
 ))
 cells.append(run_cell("exp3_pgan_resnet.py"))
 
 cells.append(md(
     "## 7. BigGAN-128 + Imagenette + ResNet18 transfer\n\n"
-    "Sample 2500 BigGAN fakes + 2500 Imagenette reals. Cung pipeline transfer. Lan dau download ~340 MB BigGAN + 94 MB Imagenette.\n\n~6-7 phut."
+    "Sample 2500 BigGAN fakes + 2500 Imagenette reals, cùng pipeline transfer. "
+    "Lần đầu sẽ download ~340 MB BigGAN và ~94 MB Imagenette. ~6-7 phút."
 ))
 cells.append(run_cell("exp4_biggan_resnet.py"))
 
 cells.append(md(
     "## 8. Grad-CAM ResNet18 (PGAN + BigGAN)\n\n"
-    "Inference 4 real + 4 fake/GAN, target layer4. ~30 giay."
+    "Inference 4 real + 4 fake mỗi GAN, target = `layer4`. ~30 giây."
 ))
 cells.append(run_cell("gradcam_resnet.py"))
 
 cells.append(md(
-    "## 9. Cross-test BigGAN->PGAN\n\n"
-    "Lay ResNet18 da train BigGAN, test thang tren PGAN val (khong retrain). Kiem tra detector co generalize cross-GAN khong."
+    "## 9. Cross-test BigGAN sang PGAN\n\n"
+    "Lấy ResNet18 đã train trên BigGAN, test thẳng trên PGAN val mà không "
+    "retrain, để xem detector có tổng quát hoá cross-GAN hay không."
 ))
 cells.append(run_cell("cross_test.py"))
 
-cells.append(md("## 10. Hien thi ket qua inline"))
+cells.append(md("## 10. Hiển thị kết quả inline"))
 cells.append(show_cell(
     "1. cGAN-MNIST + TinyCNN scratch", "output/results.txt",
     ["output/confusion_matrix.png", "output/gradcam_overlay.png",
@@ -171,11 +178,11 @@ cells.append(show_cell(
     ["output/biggan_samples.png", "output/confusion_matrix_biggan.png", "output/gradcam_biggan.png"],
 ))
 cells.append(show_cell(
-    "5. Cross-test BigGAN->PGAN", "output/results_cross.txt", [],
+    "5. Cross-test BigGAN sang PGAN", "output/results_cross.txt", [],
 ))
 
 cells.append(md(
-    "## 11. (Tuy chon) Download ket qua ve local\n\n"
+    "## 11. (Tuỳ chọn) Tải kết quả về máy\n\n"
     "```python\n"
     "from google.colab import files\n"
     "import os\n"

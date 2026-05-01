@@ -61,6 +61,10 @@ cells = []
 
 cells.append(md(
     "# Lab 2: Phát hiện ảnh GAN giả mạo bằng CNN (Colab GPU)\n\n"
+    "MSHV 25C15019 — Toán cho AI, HCMUS.\n\n"
+    "[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)]"
+    "(https://colab.research.google.com/github/nmnhut-it/math-for-ai/blob/master/lab2_cnn/colab.ipynb)  \n"
+    "Source: <https://github.com/nmnhut-it/math-for-ai/tree/master/lab2_cnn>\n\n"
     "**Self-contained**: không cần git clone. Code của từng thí nghiệm được "
     "ghi thẳng vào notebook qua `%%writefile`, chạy xong là cell kế tiếp đọc được.\n\n"
     "**Trước khi chạy**: Runtime > Change runtime type > **GPU** (T4 free hoặc L4).\n\n"
